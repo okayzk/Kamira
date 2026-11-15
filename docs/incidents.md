@@ -22,4 +22,4 @@ A catcher is the name of a check in `Tests/main.swift`, a tracked file path, or 
 
 | ID | Reported | Symptom | Introduced | Fixed | Layer | Caught by |
 |---|---|---|---|---|---|---|
-| K-01 | 2026-11-15 | The welcome window's system-shortcut button had unclear Chinese wording and opened System Settings without the instructions available in Settings. | b806ca3 | HEAD | hand-test | `internal/release-checklist.md` |
+| K-01 | 2026-11-15 | The welcome window's system-shortcut button had unclear Chinese wording and opened System Settings without the instructions available in Settings. | b806ca3 | 2104617 | hand-test | `internal/release-checklist.md` |

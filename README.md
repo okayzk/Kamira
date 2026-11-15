@@ -39,7 +39,7 @@ The Mac’s built-in screenshot and recording tools already work well. Kamira ke
 Requires **macOS 26 or later**. Supports Apple silicon and Intel Macs.
 
 1. [Download the latest release](https://github.com/okayzk/Kamira/releases/latest), open `Kamira.dmg`, and drag the app into Applications.
-2. On first launch, the welcome window brings screen recording permission, shortcuts, Open at Login and automatic updates together for setup.
+2. On first launch, the welcome window brings screen recording permission, shortcuts, Open at Login and automatic updates together for setup. Reopen it at any time from **Settings → About → Show Welcome Window**.
 3. Allow screen recording from the welcome window, follow the system prompt to **System Settings → Privacy & Security → Screen & System Audio Recording**, then reopen the app after granting permission.
 4. The default shortcuts are ⇧⌘3, ⇧⌘4, and ⇧⌘5. Follow the welcome window's instructions to disable the matching system shortcuts, or record different keys there. You can change them later in **Settings → Shortcuts**. Use the menu bar icon or a shortcut to take your first capture.
 
