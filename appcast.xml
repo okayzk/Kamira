@@ -4,6 +4,16 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
   <channel>
     <title>Kamira</title>
     <item>
+      <title>V0.1.1 Echo</title>
+      <pubDate>Sun, 15 Nov 2026 21:21:45 GMT</pubDate>
+      <sparkle:version>2</sparkle:version>
+      <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <link>https://github.com/okayzk/Kamira/releases/tag/V0.1.1</link>
+      <description>&lt;h3&gt;Changelog&lt;/h3&gt;&lt;ol&gt;&lt;li&gt;&lt;b&gt;Clearer Shortcut Guidance&lt;/b&gt;: The welcome window now uses the same Turn Off System Screenshot Shortcuts button and step-by-step instructions as Settings, with clearer Chinese wording.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Welcome Back&lt;/b&gt;: Open the welcome window again from Settings → About → Show Welcome Window, keeping your existing choices.&lt;/li&gt;&lt;/ol&gt;&lt;h3&gt;更新日志&lt;/h3&gt;&lt;ol&gt;&lt;li&gt;&lt;b&gt;快捷键指引更清楚&lt;/b&gt;：欢迎页的“关闭系统截屏快捷键…”现在会先显示与设置页相同的操作指引，中文说明也更明确。&lt;/li&gt;&lt;li&gt;&lt;b&gt;随时重看欢迎页&lt;/b&gt;：在“设置 → 关于”点击“显示欢迎页”即可重新打开，已有选择会保留。&lt;/li&gt;&lt;/ol&gt;</description>
+      <enclosure url="https://github.com/okayzk/Kamira/releases/download/V0.1.1/Kamira.zip" length="2883048" type="application/octet-stream" sparkle:edSignature="pZVQpY/ByrdppqyTOeBalYeu2cmz/qB8jxKiES9g+04RvVbHPDM5tljl5tvTgKNRlMttUa4zFq8G8u5MpzSEAw=="></enclosure>
+    </item>
+    <item>
       <title>V0.1.0 Shutter</title>
       <pubDate>Sun, 15 Nov 2026 20:50:05 GMT</pubDate>
       <sparkle:version>1</sparkle:version>
@@ -15,6 +25,6 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     </item>
   </channel>
 </rss><!-- sparkle-signatures:
-edSignature: etioEGLAU3dW17PkUK1z2mwecLDccgD0M6h4v1dkFLDUcf1FizoAaNa7cdYmM5QTmKD+2JOo1ulQGS5ORxTnAA==
-length: 6091
+edSignature: W3Xe5//3qLcNUteabHhdb06u6EkuKuAPzQ8501uceknFL2PPlZ/CF1P+awSu9yIn6IRV02T6bsjPTUhXk7uFBQ==
+length: 7603
 -->
