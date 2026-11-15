@@ -1,0 +1,160 @@
+/* English. One of two tables written side by side; neither is a translation of the other. */
+
+"tool.select" = "Select";
+"tool.arrow" = "Arrow";
+"tool.rectangle" = "Rectangle";
+"tool.ellipse" = "Ellipse";
+"tool.pen" = "Pen";
+"tool.highlight" = "Highlight";
+"tool.text" = "Text";
+"tool.counter" = "Counter";
+"tool.mosaic" = "Mosaic";
+
+"action.annotate" = "Annotate";
+"action.copy" = "Copy";
+"action.undo" = "Undo";
+"action.pin" = "Pin";
+"action.save" = "Save";
+"action.saveAs" = "Save As…";
+"action.close" = "Close";
+"action.cancel" = "Cancel";
+"action.done" = "Done";
+
+"editor.color" = "Colour";
+"editor.close" = "Close (Esc)";
+"editor.move" = "Drag to Move";
+"editor.zoom" = "Zoom (⌘+, ⌘−, ⌘0)";
+"editor.moreColors" = "More Colours…";
+
+"pin.close" = "Close Pin";
+
+"menu.captureArea" = "Capture Area";
+"menu.captureWindow" = "Capture Window";
+"menu.captureScreen" = "Capture Screen";
+"menu.scrollingCapture" = "Scrolling Capture";
+"menu.recognizeText" = "Recognise Text";
+"menu.recordScreen" = "Record Screen";
+"menu.pinClipboard" = "Pin Clipboard Image";
+"menu.annotateClipboard" = "Annotate Clipboard Image";
+"menu.closeAllPins" = "Close All Pins";
+"menu.quickPanel" = "Quick Panel";
+"menu.settings" = "Settings…";
+"menu.quit" = "Quit %@";
+
+"palette.area" = "Area";
+"palette.window" = "Window";
+"palette.screen" = "Screen";
+"palette.scrolling" = "Scrolling";
+"palette.text" = "Text";
+"palette.record" = "Record";
+"palette.pin" = "Pin";
+"palette.close" = "Close";
+
+"ocr.noText" = "No text found";
+"ocr.copied" = "Copied: %@";
+
+"gif.creating" = "Creating GIF…";
+
+"recording.inProgress" = "Recording";
+"recording.clickToStop" = "Click to stop recording";
+
+"error.noClipboardImage.annotate" = "There is no image on the clipboard. Take a screenshot first, then choose Annotate.";
+"error.noClipboardImage.pin" = "There is no image on the clipboard. Take a screenshot first, then choose Pin.";
+"error.screenshotTool" = "The system screenshot tool could not be started:\n%@";
+"error.textRecognition" = "Text recognition could not be started:\n%@";
+"error.recording" = "Recording failed:\n%@";
+"error.editor" = "The annotation editor could not be opened:\n%@";
+"error.save" = "Could not save:\n%@";
+"error.gifConversion" = "The recording could not be converted to a GIF.";
+"error.noScreen" = "The screen to record could not be found.";
+"error.noWindow" = "The window to record could not be found.";
+"error.microphone" = "Microphone access is not allowed. Allow %@ under System Settings → Privacy & Security → Microphone, or turn the microphone off before recording.";
+"error.noRecordingFile" = "No recording file was produced.";
+
+"scroll.start" = "Scroll down slowly";
+"scroll.tooFast" = "Too fast: scroll back a little";
+"scroll.progress" = "Keep scrolling · %d px so far";
+
+"preview.quickLook" = "Quick Look";
+"preview.openWith" = "Open in %@";
+"preview.open" = "Open";
+"preview.saveAsGIF" = "Save as GIF";
+
+"toggle.on" = "On";
+"toggle.off" = "Off";
+
+"selector.recordGIF" = "Record GIF (⌥↩)";
+"selector.recordVideo" = "Record Video (↩)";
+"selector.startScrolling" = "Start Scrolling Capture (↩)";
+"selector.microphone" = "Microphone";
+"selector.systemAudio" = "System Audio";
+"selector.countdown" = "3-Second Countdown";
+"selector.wholeScreen" = "Whole Screen";
+"selector.chooseWindow" = "Choose Window (Space; Esc to go back)";
+
+"settings.general" = "General";
+"settings.shortcuts" = "Shortcuts";
+"settings.openAtLogin" = "Open at Login";
+"settings.update" = "Automatic Updates";
+"settings.update.manual" = "Never";
+"settings.update.ask" = "Check and Ask to Install";
+"settings.update.automatic" = "Install Automatically";
+"settings.update.interval" = "Check";
+"settings.update.interval.day" = "Every Day";
+"settings.update.interval.week" = "Every Week";
+"settings.update.interval.month" = "Every Month";
+"settings.hideIcon" = "Hide Menu Bar Icon";
+"settings.hideIconHint" = "Open the app again to bring it back.";
+"settings.showPreview" = "Show Floating Preview";
+"settings.fadePins" = "Fade Pins Under the Pointer";
+"settings.windowShadow" = "Window Shadow";
+"settings.shadow.none" = "None";
+"settings.shadow.max" = "Max";
+"settings.about" = "About";
+"settings.screenshots" = "Screenshots";
+"settings.recording" = "Recording";
+"settings.saveLocation" = "Save To";
+"settings.saveLocation.hint" = "Recordings are always saved here.";
+"settings.hideDesktopIcons" = "Hide Desktop Icons While Capturing";
+"settings.copyAfterCapture" = "Copy to Clipboard After a Capture";
+"settings.saveAfterCapture" = "Save to Folder After a Capture";
+"settings.fileName" = "File Name";
+"settings.fileName.hint" = "%Y year, %m month, %d day, %H hour, %M minute, %S second";
+"settings.fileName.restore" = "Restore Default";
+"settings.closePreview" = "Close Preview";
+"settings.maxRecordingSize" = "Maximum Recording Size";
+"settings.maxRecordingSize.hint" = "Recording stops by itself at this size.";
+"settings.maxRecordingSize.tooltip" = "The more that moves on screen, the sooner a recording reaches this size.";
+"settings.maxRecordingSize.lasts" = "Full screen: about %@ to %@";
+"settings.unit.gigabytes" = "GB";
+"settings.duration.minutes" = "%d min";
+"settings.duration.hours" = "%@ h";
+"settings.closePreview.never" = "Never";
+"settings.closePreview.seconds" = "After %d Seconds";
+"settings.shortcut.record" = "Record Shortcut";
+"settings.shortcut.recording" = "Type Shortcut…";
+"settings.shortcut.hint" = "Click, then type a shortcut. Delete clears, Esc cancels.";
+"settings.shortcut.taken" = "In use by macOS";
+"settings.systemShortcuts" = "Turn Off System Screenshot Shortcuts…";
+"settings.systemShortcuts.steps" = "macOS answers ⇧⌘3, ⇧⌘4 and ⇧⌘5 itself while its screenshot shortcuts are on.\n\nSystem Settings → Keyboard → Keyboard Shortcuts… → Screenshots: untick the ones used here.";
+"settings.systemShortcuts.open" = "Open Keyboard Settings";
+
+"about.version" = "Version %@";
+"about.source" = "View on GitHub";
+"about.checkForUpdates" = "Check for Updates…";
+"about.license" = "Open source, GPLv3 License";
+
+"tooltip.withShortcut" = "%@ (%@)";
+"recording.stopped.size" = "Recording stopped at %d GB";
+"recording.stopped.disk" = "Recording stopped: the disk is nearly full";
+"welcome.title" = "Welcome to %@";
+"welcome.permission" = "Screen Recording";
+"welcome.permission.detail" = "Screenshots and recordings need it. Reopen the app once it is allowed.";
+"welcome.permission.allow" = "Allow…";
+"welcome.shortcuts" = "Shortcuts";
+"welcome.shortcuts.taken" = "macOS still answers these keys. Turn its own off, or click one to change it.";
+"welcome.shortcuts.free" = "Ready to use. Click one to change it.";
+"welcome.systemShortcuts.turnOff" = "Turn Off System Keys…";
+"welcome.login.detail" = "Waits in the menu bar from the moment you log in.";
+"welcome.update.detail" = "Goes online only to look for a new version.";
+"welcome.start" = "Get Started";

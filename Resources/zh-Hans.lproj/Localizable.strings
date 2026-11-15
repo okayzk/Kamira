@@ -1,0 +1,160 @@
+/* 简体中文。与英文并列的两份文案之一，各自独立撰写，互不为译文。 */
+
+"tool.select" = "选择";
+"tool.arrow" = "箭头";
+"tool.rectangle" = "矩形";
+"tool.ellipse" = "椭圆";
+"tool.pen" = "画笔";
+"tool.highlight" = "高亮";
+"tool.text" = "文字";
+"tool.counter" = "序号";
+"tool.mosaic" = "马赛克";
+
+"action.annotate" = "标注";
+"action.copy" = "复制";
+"action.undo" = "撤销";
+"action.pin" = "贴图";
+"action.save" = "保存";
+"action.saveAs" = "另存为…";
+"action.close" = "关闭";
+"action.cancel" = "取消";
+"action.done" = "完成";
+
+"editor.color" = "颜色";
+"editor.close" = "关闭（Esc）";
+"editor.move" = "按住拖动窗口";
+"editor.zoom" = "放大（⌘+、⌘−、⌘0）";
+"editor.moreColors" = "更多颜色…";
+
+"pin.close" = "关闭贴图";
+
+"menu.captureArea" = "截取区域";
+"menu.captureWindow" = "截取窗口";
+"menu.captureScreen" = "截取全屏";
+"menu.scrollingCapture" = "滚动长截图";
+"menu.recognizeText" = "识别文字";
+"menu.recordScreen" = "录屏";
+"menu.pinClipboard" = "贴上剪贴板图片";
+"menu.annotateClipboard" = "标注剪贴板图片";
+"menu.closeAllPins" = "关闭所有贴图";
+"menu.quickPanel" = "快捷面板";
+"menu.settings" = "设置…";
+"menu.quit" = "退出 %@";
+
+"palette.area" = "区域";
+"palette.window" = "窗口";
+"palette.screen" = "全屏";
+"palette.scrolling" = "长截图";
+"palette.text" = "文字";
+"palette.record" = "录屏";
+"palette.pin" = "贴图";
+"palette.close" = "关闭";
+
+"ocr.noText" = "没有识别到文字";
+"ocr.copied" = "已复制：%@";
+
+"gif.creating" = "正在生成 GIF…";
+
+"recording.inProgress" = "正在录屏";
+"recording.clickToStop" = "点击停止录屏";
+
+"error.noClipboardImage.annotate" = "剪贴板里没有图片。请先截图，再选择标注。";
+"error.noClipboardImage.pin" = "剪贴板里没有图片。请先截图，再选择贴图。";
+"error.screenshotTool" = "无法启动系统截图工具：\n%@";
+"error.textRecognition" = "无法启动文字识别：\n%@";
+"error.recording" = "录屏失败：\n%@";
+"error.editor" = "无法打开标注编辑器：\n%@";
+"error.save" = "无法保存：\n%@";
+"error.gifConversion" = "无法把录像转换成 GIF。";
+"error.noScreen" = "找不到要录制的屏幕。";
+"error.noWindow" = "找不到要录制的窗口。";
+"error.microphone" = "没有麦克风权限。请在“系统设置 → 隐私与安全性 → 麦克风”中允许 %@，或在录屏前关掉麦克风。";
+"error.noRecordingFile" = "没有生成录像文件。";
+
+"scroll.start" = "慢慢向下滚动";
+"scroll.tooFast" = "滚得太快，请往回滚一点";
+"scroll.progress" = "继续滚动 · 已拼接 %d 像素";
+
+"preview.quickLook" = "快速查看";
+"preview.openWith" = "用 %@ 打开";
+"preview.open" = "打开";
+"preview.saveAsGIF" = "存为 GIF";
+
+"toggle.on" = "开";
+"toggle.off" = "关";
+
+"selector.recordGIF" = "录制 GIF（⌥↩）";
+"selector.recordVideo" = "录制视频（↩）";
+"selector.startScrolling" = "开始滚动长截图（↩）";
+"selector.microphone" = "麦克风";
+"selector.systemAudio" = "系统声音";
+"selector.countdown" = "3 秒倒计时";
+"selector.wholeScreen" = "整个屏幕";
+"selector.chooseWindow" = "选择窗口（空格；Esc 返回划区）";
+
+"settings.general" = "通用";
+"settings.shortcuts" = "快捷键";
+"settings.openAtLogin" = "登录时打开";
+"settings.update" = "自动更新";
+"settings.update.manual" = "从不";
+"settings.update.ask" = "检查后询问";
+"settings.update.automatic" = "自动下载并安装";
+"settings.update.interval" = "检查频率";
+"settings.update.interval.day" = "每天";
+"settings.update.interval.week" = "每周";
+"settings.update.interval.month" = "每月";
+"settings.hideIcon" = "隐藏菜单栏图标";
+"settings.hideIconHint" = "再次打开应用即可找回。";
+"settings.showPreview" = "显示悬浮预览";
+"settings.fadePins" = "鼠标悬停时贴图半透明";
+"settings.windowShadow" = "窗口阴影";
+"settings.shadow.none" = "无";
+"settings.shadow.max" = "最大";
+"settings.about" = "关于";
+"settings.screenshots" = "截图";
+"settings.recording" = "录屏";
+"settings.saveLocation" = "保存位置";
+"settings.saveLocation.hint" = "录屏会一直自动保存到这里。";
+"settings.hideDesktopIcons" = "截图和录屏时隐藏桌面图标";
+"settings.copyAfterCapture" = "截图后复制到剪贴板";
+"settings.saveAfterCapture" = "截图后保存到文件夹";
+"settings.fileName" = "文件名";
+"settings.fileName.hint" = "%Y 年，%m 月，%d 日，%H 时，%M 分，%S 秒";
+"settings.fileName.restore" = "恢复默认";
+"settings.closePreview" = "自动关闭预览";
+"settings.maxRecordingSize" = "录屏大小上限";
+"settings.maxRecordingSize.hint" = "录到这个大小会自动停止。";
+"settings.maxRecordingSize.tooltip" = "画面变化越多，越快录到这个大小。";
+"settings.maxRecordingSize.lasts" = "全屏大约能录 %@到 %@";
+"settings.unit.gigabytes" = "GB";
+"settings.duration.minutes" = "%d 分钟";
+"settings.duration.hours" = "%@ 小时";
+"settings.closePreview.never" = "从不";
+"settings.closePreview.seconds" = "%d 秒后";
+"settings.shortcut.record" = "录制快捷键";
+"settings.shortcut.recording" = "按下快捷键…";
+"settings.shortcut.hint" = "点按后输入快捷键；Delete 清除，Esc 取消。";
+"settings.shortcut.taken" = "已被 macOS 占用";
+"settings.systemShortcuts" = "关闭系统截屏快捷键…";
+"settings.systemShortcuts.steps" = "系统截屏也用 ⇧⌘3、⇧⌘4、⇧⌘5，开着时按键只归系统。\n\n系统设置 → 键盘 → 键盘快捷键… → 截屏，取消勾选相同的几项。";
+"settings.systemShortcuts.open" = "打开键盘设置";
+
+"about.version" = "版本 %@";
+"about.source" = "在 GitHub 上查看";
+"about.checkForUpdates" = "检查更新…";
+"about.license" = "开源，GPLv3 许可";
+
+"tooltip.withShortcut" = "%@（%@）";
+"recording.stopped.size" = "录屏已到 %d GB 上限，已自动停止";
+"recording.stopped.disk" = "磁盘空间快满了，录屏已自动停止";
+"welcome.title" = "欢迎使用 %@";
+"welcome.permission" = "录屏权限";
+"welcome.permission.detail" = "截图和录屏都需要，允许后重新打开应用。";
+"welcome.permission.allow" = "允许…";
+"welcome.shortcuts" = "快捷键";
+"welcome.shortcuts.taken" = "系统截屏还占着这几个键，关掉它的，或者点一下换成别的。";
+"welcome.shortcuts.free" = "按下就能用，点一下可以换成别的。";
+"welcome.systemShortcuts.turnOff" = "关掉系统的…";
+"welcome.login.detail" = "开机就待在菜单栏，随时截图。";
+"welcome.update.detail" = "只在检查新版本时联网。";
+"welcome.start" = "开始使用";

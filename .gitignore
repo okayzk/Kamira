@@ -1,0 +1,14 @@
+build/
+dist/
+.tmp/
+.DS_Store
+# Private notes for the release machine (credential locations); never tracked.
+.claude/*.local.md
+.claude/settings.local.json
+__pycache__/
+# Private documents: a repository of their own
+/internal/
+/AGENTS.md
+/CLAUDE.md
+/.agents/
+/.claude/skills/

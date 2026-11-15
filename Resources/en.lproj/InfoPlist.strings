@@ -1,0 +1,2 @@
+NSMicrophoneUsageDescription = "Record your voice with a screen recording, only when you turn that option on.";
+NSScreenCaptureUsageDescription = "Capture your screen only when you request it. Screenshots stay local and are copied to the clipboard.";

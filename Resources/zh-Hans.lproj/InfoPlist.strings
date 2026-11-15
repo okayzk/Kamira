@@ -1,0 +1,2 @@
+NSMicrophoneUsageDescription = "仅在你打开麦克风选项时，随录屏录下你的声音。";
+NSScreenCaptureUsageDescription = "仅在你要求时截取屏幕。截图只保存在本机，并复制到剪贴板。";
