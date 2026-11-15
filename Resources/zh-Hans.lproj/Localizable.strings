@@ -141,6 +141,7 @@
 
 "about.version" = "版本 %@";
 "about.source" = "在 GitHub 上查看";
+"about.showWelcome" = "显示欢迎页";
 "about.checkForUpdates" = "检查更新…";
 "about.license" = "开源，GPLv3 许可";
 
@@ -152,9 +153,8 @@
 "welcome.permission.detail" = "截图和录屏都需要，允许后重新打开应用。";
 "welcome.permission.allow" = "允许…";
 "welcome.shortcuts" = "快捷键";
-"welcome.shortcuts.taken" = "系统截屏还占着这几个键，关掉它的，或者点一下换成别的。";
+"welcome.shortcuts.taken" = "系统截屏正在使用这些快捷键。可以在系统设置中关闭，或在这里换一组。";
 "welcome.shortcuts.free" = "按下就能用，点一下可以换成别的。";
-"welcome.systemShortcuts.turnOff" = "关掉系统的…";
 "welcome.login.detail" = "开机就待在菜单栏，随时截图。";
 "welcome.update.detail" = "只在检查新版本时联网。";
 "welcome.start" = "开始使用";

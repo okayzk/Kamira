@@ -23,7 +23,7 @@ final class WelcomeWindowController: SettingsSurface, NSWindowDelegate {
     private let permissionMark = Mark(symbol: "record.circle", colour: .systemRed)
     private let keysMark = Mark(symbol: "command", colour: .systemBlue)
     private let allow = WelcomeWindowController.glassButton(L("welcome.permission.allow"))
-    private let turnOff = WelcomeWindowController.glassButton(L("welcome.systemShortcuts.turnOff"))
+    private let turnOff = WelcomeWindowController.glassButton(L("settings.systemShortcuts"))
     private let keysDetail = WelcomeWindowController.detail("")
     private var recorders: [ShortcutAction: ShortcutRecorder] = [:]
     private var interval = NSPopUpButton()
@@ -216,7 +216,7 @@ final class WelcomeWindowController: SettingsSurface, NSWindowDelegate {
     /// reopen the app once it is allowed.
     @objc private func allowRecording() { CGRequestScreenCaptureAccess() }
 
-    @objc private func openKeyboard() { Self.openKeyboardSettings() }
+    @objc private func openKeyboard() { showShortcutGuide(relativeTo: turnOff) }
 
     @objc private func finish() { window.close() }
 
@@ -224,6 +224,11 @@ final class WelcomeWindowController: SettingsSurface, NSWindowDelegate {
 
     func show() {
         refresh()
+        if window.isVisible {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
         window.center()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)

@@ -249,6 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let controller = SettingsWindowController()
             controller.onChange = { [weak self] in self?.applySettings() }
             controller.onQuit = { [weak self] in self?.quit() }
+            controller.onShowWelcome = { [weak self] in self?.showWelcome() }
             // A shortcut typed into the settings must not also start its action.
             controller.onRecordingShortcut = { [weak self] recording in
                 if recording { self?.unregisterHotKeys() } else { self?.registerHotKeys() }
@@ -264,6 +265,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showWelcome(pending: Bool = false) {
+        if let welcomeWindow = welcomeWindow {
+            welcomeWindow.show()
+            return
+        }
         let controller = WelcomeWindowController()
         controller.showsPending = pending
         let demo = CommandLine.arguments.contains { $0.hasPrefix("--demo-welcome") }

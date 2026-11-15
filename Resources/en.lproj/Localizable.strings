@@ -141,6 +141,7 @@
 
 "about.version" = "Version %@";
 "about.source" = "View on GitHub";
+"about.showWelcome" = "Show Welcome Window";
 "about.checkForUpdates" = "Check for Updates…";
 "about.license" = "Open source, GPLv3 License";
 
@@ -154,7 +155,6 @@
 "welcome.shortcuts" = "Shortcuts";
 "welcome.shortcuts.taken" = "macOS still answers these keys. Turn its own off, or click one to change it.";
 "welcome.shortcuts.free" = "Ready to use. Click one to change it.";
-"welcome.systemShortcuts.turnOff" = "Turn Off System Keys…";
 "welcome.login.detail" = "Waits in the menu bar from the moment you log in.";
 "welcome.update.detail" = "Goes online only to look for a new version.";
 "welcome.start" = "Get Started";

@@ -20,9 +20,6 @@ A catcher is the name of a check in `Tests/main.swift`, a tracked file path, or 
 
 ## Incidents
 
-No release has been tagged yet, so there are no rows. The first one will look like this (without the leading `>`):
-
-> | K-01 | 2026-12-01 | What the user saw (#issue) | abc1234 | def5678 | unit | `Tests/main.swift` |
-
 | ID | Reported | Symptom | Introduced | Fixed | Layer | Caught by |
 |---|---|---|---|---|---|---|
+| K-01 | 2026-11-15 | The welcome window's system-shortcut button had unclear Chinese wording and opened System Settings without the instructions available in Settings. | b806ca3 | HEAD | hand-test | `internal/release-checklist.md` |

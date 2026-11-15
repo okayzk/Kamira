@@ -235,6 +235,43 @@ class SettingsSurface: NSObject {
     static let paneWidth: CGFloat = 460
 
     private var actions: [() -> Void] = []
+    private var guide: NSPopover?
+
+    /// The same system-shortcut instructions in Settings and the welcome window.
+    func showShortcutGuide(relativeTo button: NSButton) {
+        guide?.close()
+        let text = NSTextField(wrappingLabelWithString: L("settings.systemShortcuts.steps"))
+        text.widthAnchor.constraint(equalToConstant: 300).isActive = true
+        let open = NSButton(title: L("settings.systemShortcuts.open"), target: self,
+                            action: #selector(openKeyboardFromGuide))
+        open.bezelStyle = .rounded
+        open.keyEquivalent = "\r"
+        let column = NSStackView(views: [text, open])
+        column.orientation = .vertical
+        column.alignment = .trailing
+        column.spacing = 14
+        column.translatesAutoresizingMaskIntoConstraints = false
+        let content = NSView()
+        content.addSubview(column)
+        NSLayoutConstraint.activate([
+            column.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
+            column.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
+            column.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
+            column.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16)
+        ])
+        let controller = NSViewController()
+        controller.view = content
+        let popover = NSPopover()
+        popover.contentViewController = controller
+        popover.behavior = .transient
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
+        guide = popover
+    }
+
+    @objc private func openKeyboardFromGuide() {
+        guide?.close()
+        Self.openKeyboardSettings()
+    }
 
     static func openKeyboardSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") {
@@ -432,6 +469,7 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
 
     var onClose: (() -> Void)?
     var onQuit: (() -> Void)?
+    var onShowWelcome: (() -> Void)?
     /// Called with true while a shortcut is being typed into a recorder.
     var onRecordingShortcut: ((Bool) -> Void)?
 
@@ -443,7 +481,6 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
     /// Each action's recorder and the warning beside it.
     private var recorders: [ShortcutAction: (recorder: ShortcutRecorder, warning: NSImageView)] = [:]
     private let guideButton = NSButton()
-    private var guide: NSPopover?
 
     override init() {
         window = NSWindow(contentRect: .zero, styleMask: [.titled, .closable], backing: .buffered, defer: false)
@@ -699,7 +736,9 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
         let tagline = NSTextField(labelWithString: L("about.tagline"))
         let source = NSButton(title: L("about.source"), target: self, action: #selector(openSource))
         source.bezelStyle = .rounded
-        let column = NSStackView(views: [icon, name, caption(L("about.version", version)), tagline, source,
+        let welcome = NSButton(title: L("about.showWelcome"), target: self, action: #selector(showWelcomeClicked))
+        welcome.bezelStyle = .rounded
+        let column = NSStackView(views: [icon, name, caption(L("about.version", version)), tagline, source, welcome,
                                          caption(L("about.license"))])
         column.orientation = .vertical
         column.alignment = .centerX
@@ -707,11 +746,13 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
         column.setCustomSpacing(10, after: icon)
         column.setCustomSpacing(14, after: column.views[2])
         column.setCustomSpacing(18, after: tagline)
-        column.setCustomSpacing(10, after: source)
+        column.setCustomSpacing(10, after: welcome)
         column.edgeInsets = NSEdgeInsets(top: 28, left: 20, bottom: 28, right: 20)
         column.widthAnchor.constraint(equalToConstant: Self.paneWidth).isActive = true
         return column
     }
+
+    @objc private func showWelcomeClicked() { onShowWelcome?() }
 
     @objc private func openSource() {
         if let url = AppInfo.repository { NSWorkspace.shared.open(url) }
@@ -732,38 +773,7 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
 
     /// Says how to switch off the system's own screenshot shortcuts, which use the same
     /// keys as this app's defaults and are answered first. Shown only when asked for.
-    @objc func showGuide() {
-        let text = NSTextField(wrappingLabelWithString: L("settings.systemShortcuts.steps"))
-        text.widthAnchor.constraint(equalToConstant: 300).isActive = true
-        let open = NSButton(title: L("settings.systemShortcuts.open"), target: self, action: #selector(openKeyboardSettings))
-        open.bezelStyle = .rounded
-        open.keyEquivalent = "\r"
-        let column = NSStackView(views: [text, open])
-        column.orientation = .vertical
-        column.alignment = .trailing
-        column.spacing = 14
-        column.translatesAutoresizingMaskIntoConstraints = false
-        let content = NSView()
-        content.addSubview(column)
-        NSLayoutConstraint.activate([
-            column.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
-            column.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
-            column.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
-            column.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16)
-        ])
-        let controller = NSViewController()
-        controller.view = content
-        let popover = NSPopover()
-        popover.contentViewController = controller
-        popover.behavior = .transient
-        popover.show(relativeTo: guideButton.bounds, of: guideButton, preferredEdge: .maxY)
-        guide = popover
-    }
-
-    @objc private func openKeyboardSettings() {
-        guide?.close()
-        Self.openKeyboardSettings()
-    }
+    @objc func showGuide() { showShortcutGuide(relativeTo: guideButton) }
 
     // MARK: Window
 
