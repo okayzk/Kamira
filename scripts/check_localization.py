@@ -13,8 +13,10 @@ for path in sorted(glob.glob("Sources/**/*.swift", recursive=True)):
     for number, line in enumerate(open(path, encoding="utf-8"), 1):
         code = line.split("//")[0]
         used.update(re.findall(r'\bL\("((?:[^"\\]|\\.)*)"', code))
-        # Sample text for the drawing demo is not user interface.
-        if re.search(r'"[^"]*[一-鿿][^"]*"', code) and "Hello 标注 123" not in code:
+        # Sample text drawn for the annotation demo and for the text-recognition warm-up
+        # is not user interface.
+        samples = ("Hello 标注 123", "滚动长截图与文字识别")
+        if re.search(r'"[^"]*[一-鿿][^"]*"', code) and not any(sample in code for sample in samples):
             stray.append(f"{path}:{number}: {line.strip()}")
 
 def table(language):

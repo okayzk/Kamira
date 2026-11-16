@@ -52,6 +52,7 @@
 
 "ocr.noText" = "没有识别到文字";
 "ocr.copied" = "已复制：%@";
+"ocr.preparing" = "正在准备文字识别，首次约需一分钟…";
 
 "gif.creating" = "正在生成 GIF…";
 

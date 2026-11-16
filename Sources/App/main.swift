@@ -15,6 +15,8 @@ if let index = CommandLine.arguments.firstIndex(of: "--convert-gif"),
 if let index = CommandLine.arguments.firstIndex(of: "--ocr"), index + 1 < CommandLine.arguments.count {
     TextRecognizer.runHelper(image: CommandLine.arguments[index + 1])
 }
+// Helper mode: read a drawn picture once so the next reading is quick; see `TextRecognizer.runWarmUp`.
+if CommandLine.arguments.contains("--ocr-warm-up") { TextRecognizer.runWarmUp() }
 
 // Helper mode: give a window capture a shadow of the given step and exit; see `WindowShadow`.
 if let index = CommandLine.arguments.firstIndex(of: "--window-shadow"), index + 1 < CommandLine.arguments.count {

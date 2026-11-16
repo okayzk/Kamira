@@ -52,6 +52,7 @@
 
 "ocr.noText" = "No text found";
 "ocr.copied" = "Copied: %@";
+"ocr.preparing" = "Setting up text recognition, up to a minute…";
 
 "gif.creating" = "Creating GIF…";
 

@@ -40,6 +40,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var scrollCapture: ScrollCaptureSession?
     /// The message currently on screen, if any.
     private var toast: Toast?
+    /// The helper that prepares text recognition at launch; see `TextRecognizer.runWarmUp`.
+    private var textRecognitionWarmUp: Process?
     private var regionSelector: RegionSelector?
     /// Outline around the region being recorded.
     private var recordingFrame: RecordingFrameWindow?
@@ -67,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         recorder.workDirectory = dragDirectory
         configureRecorder()
         Updater.start()
+        warmUpTextRecognition()
         // The first start only. `--demo-welcome` shows it again; `--demo-welcome-pending`
         // as on a Mac where nothing is allowed or switched off yet.
         let demo = CommandLine.arguments.contains { $0.hasPrefix("--demo") }
@@ -582,9 +585,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Starts the warm-up helper, which reads one drawn picture so that the user's first
+    /// reading does not wait for the system to prepare its models.
+    private func warmUpTextRecognition() {
+        let helper = Process()
+        helper.executableURL = Bundle.main.executableURL
+        helper.arguments = ["--ocr-warm-up"]
+        guard (try? helper.run()) != nil else { return }
+        textRecognitionWarmUp = helper
+    }
+
     /// Recognises the text in a helper process (see `TextRecognizer`), copies it and
     /// says so in a toast.
     private func recognizeText(in file: URL, removingFile: Bool) {
+        // While the warm-up still prepares the models, a second reader would prepare them
+        // again alongside it and finish later than the warm-up does (52 s against 42 s,
+        // measured): wait for it instead, and say why nothing happens yet.
+        if let warmUp = textRecognitionWarmUp, warmUp.isRunning {
+            showToast(symbol: "text.viewfinder", message: L("ocr.preparing"))
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                warmUp.waitUntilExit()
+                DispatchQueue.main.async { self?.recognizeText(in: file, removingFile: removingFile) }
+            }
+            return
+        }
         let helper = Process()
         let pipe = Pipe()
         helper.executableURL = Bundle.main.executableURL

@@ -476,25 +476,17 @@ do {
     ]
     check(TextRecognizer.assemble(stacked) == "a\nb", "lines close together stay separate")
 
-    // End to end with the system recogniser: a drawn picture with English and Chinese.
-    let size = NSSize(width: 900, height: 260)
-    let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
-                                  bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                                  colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
-    NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
-    NSColor.white.setFill()
-    NSRect(origin: .zero, size: size).fill()
-    let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 40),
-                                                     .foregroundColor: NSColor.black]
-    ("Hello Capture 2026" as NSString).draw(at: NSPoint(x: 40, y: 160), withAttributes: attributes)
-    ("滚动长截图与文字识别" as NSString).draw(at: NSPoint(x: 40, y: 60), withAttributes: attributes)
-    NSGraphicsContext.restoreGraphicsState()
+    // End to end with the system recogniser, on the picture the warm-up reads: it must
+    // hold English and Chinese, so that warming up prepares what a real reading needs.
+    let picture = TextRecognizer.warmUpPicture()
+    let expected = "Hello Capture 2026\n滚动长截图与文字识别"
+    let direct = (try? TextRecognizer.recognize(picture)) ?? "<failed>"
+    check(direct == expected, "warm-up picture recognised, got \(direct.debugDescription)")
     let file = FileManager.default.temporaryDirectory.appendingPathComponent("ce-ocr-test-\(UUID().uuidString).png")
-    try! bitmap.representation(using: .png, properties: [:])!.write(to: file)
+    try! NSBitmapImageRep(cgImage: picture).representation(using: .png, properties: [:])!.write(to: file)
     let text = (try? TextRecognizer.recognize(imageAt: file)) ?? "<failed>"
     try? FileManager.default.removeItem(at: file)
-    check(text == "Hello Capture 2026\n滚动长截图与文字识别", "recognised text, got \(text.debugDescription)")
+    check(text == expected, "recognised text from a file, got \(text.debugDescription)")
 }
 
 // A see-through bar over the page (Safari's tool bar on macOS 26): the page shows through
