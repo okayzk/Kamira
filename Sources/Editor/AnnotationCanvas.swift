@@ -175,6 +175,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         let hadText = textField != nil
         commitText()
         let point = imagePoint(event)
+        dragPoint = nil
         // An existing annotation under the pointer takes the click, whatever the tool.
         if let handle = handle(at: point) {
             record()
@@ -212,23 +213,47 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
 
     override func mouseDragged(with event: NSEvent) {
         let point = imagePoint(event)
-        if let index = selected, let drag = drag {
-            switch drag {
-            case .handle(let handle):
-                annotations[index] = annotations[index].movingHandle(handle, to: point)
-            case .move(let from, let original):
-                annotations[index] = original.moved(by: CGVector(dx: point.x - from.x, dy: point.y - from.y),
-                                                    keepingInside: CGRect(origin: .zero, size: imageSize))
-            }
-            return
+        dragPoint = point
+        if let index = selected, case .move(let from, let original)? = drag {
+            annotations[index] = original.moved(by: CGVector(dx: point.x - from.x, dy: point.y - from.y),
+                                                keepingInside: CGRect(origin: .zero, size: imageSize))
+        } else if var annotation = current, annotation.tool == .pen {
+            annotation.points.append(point)
+            current = annotation
+        } else {
+            stretch(to: point, snappingInside: snapLimit(event))
         }
-        guard var annotation = current else { return }
-        if annotation.tool == .pen { annotation.points.append(point) }
-        else { annotation.points[1] = point }
-        current = annotation
+    }
+
+    /// Where the pointer last was during a drag, so that pressing or letting go of Shift
+    /// reshapes what is being drawn without waiting for the pointer to move.
+    private var dragPoint: CGPoint?
+
+    override func flagsChanged(with event: NSEvent) {
+        super.flagsChanged(with: event)
+        if let point = dragPoint { stretch(to: point, snappingInside: snapLimit(event)) }
+    }
+
+    /// The image's bounds while Shift is held: what `Annotation.snapped` keeps within.
+    private func snapLimit(_ event: NSEvent) -> CGRect? {
+        event.modifierFlags.contains(.shift) ? CGRect(origin: .zero, size: imageSize) : nil
+    }
+
+    /// Takes the end being dragged, of the shape being drawn or of the selected one's
+    /// handle, to `point`; with `limit`, snapped as Shift asks.
+    private func stretch(to point: CGPoint, snappingInside limit: CGRect?) {
+        if let index = selected, case .handle(let handle)? = drag {
+            annotations[index] = annotations[index].movingHandle(handle, to: point, snappingInside: limit)
+        } else if var annotation = current, annotation.tool != .pen {
+            annotation.points[1] = limit.map {
+                Annotation.snapped(point, from: annotation.points[0], tool: annotation.tool, inside: $0)
+            } ?? point
+            current = annotation
+        }
     }
 
     override func mouseUp(with event: NSEvent) {
+        dragPoint = nil
         if let drag = drag {
             self.drag = nil
             // A click that only selected changed nothing, so there is nothing to undo.
@@ -280,22 +305,26 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     /// Development aid: replays one gesture per tool through the real mouse handlers,
     /// so the drawing path can be checked without touching the pointer.
     func drawSamples(colors: [CGColor], thenEdit: Bool = false) {
-        func event(_ type: NSEvent.EventType, _ x: CGFloat, _ y: CGFloat) -> NSEvent {
+        func event(_ type: NSEvent.EventType, _ x: CGFloat, _ y: CGFloat, _ flags: NSEvent.ModifierFlags) -> NSEvent {
             let point = convert(NSPoint(x: x * bounds.width, y: y * bounds.height), to: nil)
-            return NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: 0,
+            return NSEvent.mouseEvent(with: type, location: point, modifierFlags: flags, timestamp: 0,
                                       windowNumber: window?.windowNumber ?? 0, context: nil,
                                       eventNumber: 0, clickCount: 1, pressure: 1)!
         }
-        func gesture(_ tool: AnnotationTool, _ colorIndex: Int, _ path: [(CGFloat, CGFloat)]) {
+        func gesture(_ tool: AnnotationTool, _ colorIndex: Int, _ path: [(CGFloat, CGFloat)],
+                     _ flags: NSEvent.ModifierFlags = []) {
             self.tool = tool
             selected = nil
             applyColor(colors[colorIndex])
-            mouseDown(with: event(.leftMouseDown, path[0].0, path[0].1))
-            for step in path.dropFirst() { mouseDragged(with: event(.leftMouseDragged, step.0, step.1)) }
-            mouseUp(with: event(.leftMouseUp, path.last!.0, path.last!.1))
+            mouseDown(with: event(.leftMouseDown, path[0].0, path[0].1, flags))
+            for step in path.dropFirst() { mouseDragged(with: event(.leftMouseDragged, step.0, step.1, flags)) }
+            mouseUp(with: event(.leftMouseUp, path.last!.0, path.last!.1, flags))
         }
         gesture(.arrow, 0, [(0.08, 0.9), (0.28, 0.72)])
         gesture(.line, 2, [(0.08, 0.66), (0.3, 0.66)])
+        // With Shift: a slanted drag gives a level line, an oblong one a circle.
+        gesture(.line, 3, [(0.3, 0.1), (0.45, 0.14)], .shift)
+        gesture(.ellipse, 3, [(0.47, 0.04), (0.52, 0.2)], .shift)
         gesture(.rectangle, 1, [(0.36, 0.62), (0.6, 0.92)])
         gesture(.ellipse, 2, [(0.66, 0.62), (0.9, 0.92)])
         let wave: [(CGFloat, CGFloat)] = (0...20).map { step in

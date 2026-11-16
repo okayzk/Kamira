@@ -87,6 +87,36 @@ func testEditor() {
         }
         check(arrow.movingHandle(1, to: at(40, 10)).points == [at(0, 0), at(40, 10)], "dragging an arrow's head")
 
+        // Shift: lines and arrows in steps of 45°, rectangles square and ellipses round.
+        let room = CGRect(x: -200, y: -200, width: 400, height: 400)
+        func snap(_ tool: AnnotationTool, _ point: CGPoint, from anchor: CGPoint = at(0, 0), inside limit: CGRect = room) -> CGPoint {
+            Annotation.snapped(point, from: anchor, tool: tool, inside: limit)
+        }
+        check(snap(.line, at(100, 10)) == at(100, 0), "a nearly level line becomes level, ending under the pointer")
+        check(snap(.arrow, at(-8, 100)) == at(0, 100), "a nearly upright arrow becomes upright")
+        check(snap(.line, at(-100, -6)) == at(-100, 0), "level towards the left too")
+        let diagonal = snap(.line, at(100, 80))
+        check(abs(diagonal.x - 90) < 0.001 && abs(diagonal.y - 90) < 0.001, "a line near 45° goes to 45°, got \(diagonal)")
+        check(snap(.rectangle, at(50, 30), from: at(10, 10)) == at(50, 50), "a rectangle becomes a square as large as the longer side")
+        check(snap(.ellipse, at(-20, 0), from: at(10, 10)) == at(-20, -20), "an ellipse becomes a circle, whichever way it is dragged")
+        check(snap(.rectangle, at(50, 30), from: at(10, 10), inside: CGRect(x: 0, y: 0, width: 100, height: 40)) == at(40, 40),
+              "a square stops at the edge of the image")
+        let corner = snap(.line, at(100, 100), from: at(10, 10), inside: CGRect(x: 0, y: 0, width: 100, height: 40))
+        check(abs(corner.x - 40) < 0.001 && abs(corner.y - 40) < 0.001, "a 45° line stops at the edge of the image, got \(corner)")
+        check(snap(.pen, at(37, 11)) == at(37, 11) && snap(.highlight, at(37, 11)) == at(37, 11), "other tools are left alone")
+
+        // Shift while dragging a handle: the opposite end or corner stays where it is.
+        let wide = Annotation(tool: .rectangle, color: red, points: [at(0, 0), at(40, 20)])
+        check(wide.movingHandle(3, to: at(50, 30), snappingInside: room).rect == CGRect(x: 0, y: 0, width: 50, height: 50),
+              "dragging a corner with Shift keeps a square")
+        check(wide.movingHandle(0, to: at(-5, 15), snappingInside: room).rect == CGRect(x: -5, y: -25, width: 45, height: 45),
+              "dragging the opposite corner with Shift keeps a square too")
+        let tilted = Annotation(tool: .line, color: red, points: [at(0, 0), at(100, 0)])
+        let raised = tilted.movingHandle(1, to: at(60, 70), snappingInside: room).points[1]
+        check(abs(raised.x - 65) < 0.001 && abs(raised.y - 65) < 0.001, "dragging a line's end with Shift turns it by 45°, got \(raised)")
+        check(tilted.movingHandle(0, to: at(10, 3), snappingInside: room).points == [at(10, 0), at(100, 0)],
+              "either end of a line can be dragged with Shift")
+
         // The move is cut short at the image edge instead of losing the annotation.
         let limit = CGRect(x: 0, y: 0, width: 200, height: 100)
         check(boxOnly.moved(by: CGVector(dx: 500, dy: -500), keepingInside: limit).rect == CGRect(x: 180, y: 0, width: 20, height: 30),

@@ -117,9 +117,16 @@ extension Annotation {
         return (0..<4).map { CGPoint(x: points[$0 & 1].x, y: points[$0 >> 1].y) }
     }
 
-    /// The annotation after dragging handle `index` (into `handles`) to `point`.
-    func movingHandle(_ index: Int, to point: CGPoint) -> Annotation {
+    /// The annotation after dragging handle `index` (into `handles`) to `point`. With
+    /// `limit` (Shift held), the handle snaps as `snapped` says around the opposite end
+    /// or corner, which stays where it is.
+    func movingHandle(_ index: Int, to point: CGPoint, snappingInside limit: CGRect? = nil) -> Annotation {
         guard hasTwoPoints else { return self }
+        var point = point
+        if let limit = limit {
+            let anchor = isSegment ? points[1 - index] : handles[3 - index]
+            point = Self.snapped(point, from: anchor, tool: tool, inside: limit)
+        }
         var copy = self
         if isSegment {
             copy.points[index] = point
@@ -128,6 +135,38 @@ extension Annotation {
             copy.points[index >> 1].y = point.y
         }
         return copy
+    }
+
+    /// Where the end dragged to `point` goes while Shift is held, `anchor` being the end
+    /// that stays: an arrow or a line turns to the nearest multiple of 45° and ends level
+    /// with the pointer; a rectangle becomes a square and an ellipse a circle, as large as
+    /// the longer side. Either stops at the edge of `limit`. Other tools are left alone.
+    static func snapped(_ point: CGPoint, from anchor: CGPoint, tool: AnnotationTool,
+                        inside limit: CGRect) -> CGPoint {
+        let dx = point.x - anchor.x, dy = point.y - anchor.y
+        var direction: CGVector
+        var length: CGFloat
+        switch tool {
+        case .arrow, .line:
+            let step = CGFloat.pi / 4
+            let angle = (atan2(dy, dx) / step).rounded() * step
+            // cos(90°) comes out as 6e-17, which would tilt a level line ever so slightly.
+            func exact(_ value: CGFloat) -> CGFloat { abs(value) < 1e-9 ? 0 : value }
+            direction = CGVector(dx: exact(cos(angle)), dy: exact(sin(angle)))
+            length = max(0, dx * direction.dx + dy * direction.dy)
+        case .rectangle, .ellipse:
+            direction = CGVector(dx: dx < 0 ? -1 : 1, dy: dy < 0 ? -1 : 1)
+            length = max(abs(dx), abs(dy))
+        case .pen, .highlight, .text, .counter, .mosaic:
+            return point
+        }
+        // As far along `direction` as the limit leaves room for.
+        if direction.dx > 0 { length = min(length, (limit.maxX - anchor.x) / direction.dx) }
+        if direction.dx < 0 { length = min(length, (limit.minX - anchor.x) / direction.dx) }
+        if direction.dy > 0 { length = min(length, (limit.maxY - anchor.y) / direction.dy) }
+        if direction.dy < 0 { length = min(length, (limit.minY - anchor.y) / direction.dy) }
+        length = max(0, length)
+        return CGPoint(x: anchor.x + direction.dx * length, y: anchor.y + direction.dy * length)
     }
 
     /// Numbers the counters 1, 2, 3… in drawing order, e.g. after one was deleted.
