@@ -27,6 +27,7 @@ GATES = [
                                              "code; it took 15 s with the wrong settings."),
     ("Sources/Capture/RegionSelector.swift", "Hand test the selector on every screen: drag, whole screen, "
                                              "window, Esc."),
+    ("Sources/", "Run `scripts/accessibility_audit.sh`: every control keeps a name and an identifier."),
     ("Resources/", "Look at the changed text in the app in both languages "
                    "(`-AppleLanguages \"(zh-Hans)\"` and `\"(en)\"`)."),
     ("Bundle/", f"Run `make package`, then open dist/{NAME}.dmg and start the app from it."),

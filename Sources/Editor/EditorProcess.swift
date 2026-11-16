@@ -17,6 +17,7 @@ final class EditorProcessDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        QuietMode.start()
         EditMenu.install()
         let data = try? Data(contentsOf: imageURL)
         try? FileManager.default.removeItem(at: imageURL)

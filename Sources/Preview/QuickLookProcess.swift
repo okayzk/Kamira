@@ -13,7 +13,8 @@ final class QuickLookProcessDelegate: NSObject, NSApplicationDelegate, QLPreview
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        NSApp.activate(ignoringOtherApps: true)
+        QuietMode.start()
+        QuietMode.activate()
         guard let panel = QLPreviewPanel.shared() else { NSApp.terminate(nil); return }
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: panel,
                                                queue: .main) { _ in NSApp.terminate(nil) }

@@ -68,7 +68,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         registerHotKeys()
         recorder.workDirectory = dragDirectory
         configureRecorder()
-        Updater.start()
+        if !QuietMode.isOn { Updater.start() }
+        QuietMode.start()
         warmUpTextRecognition()
         // The first start only. `--demo-welcome` shows it again; `--demo-welcome-pending`
         // as on a Mac where nothing is allowed or switched off yet.
@@ -230,7 +231,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         add(menu, L("menu.quit", AppInfo.name), #selector(quit)).keyEquivalent = "q"
         statusItem.menu = menu
         statusMenu = menu
-        statusItem.isVisible = !Settings.hideMenuBarIcon
+        statusItem.isVisible = !Settings.hideMenuBarIcon && !QuietMode.isOn
         showShortcutsInMenu()
     }
 
@@ -263,7 +264,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             settingsWindow = controller
         }
-        statusItem.isVisible = true
+        statusItem.isVisible = !QuietMode.isOn
         settingsWindow?.show()
     }
 
@@ -292,7 +293,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Brings what is on screen in line with the settings.
     private func applySettings() {
-        statusItem.isVisible = settingsWindow != nil || !Settings.hideMenuBarIcon
+        statusItem.isVisible = (settingsWindow != nil || !Settings.hideMenuBarIcon) && !QuietMode.isOn
         // A preview that was switched off goes away; a recording is in the save folder already.
         for overlay in previews where !(overlay.isRecording ? Settings.recordingPreviewEnabled : Settings.previewEnabled) {
             overlay.close()
@@ -407,6 +408,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the settings mark those (`Shortcut.isTaken`).
     private func registerHotKeys() {
         unregisterHotKeys()
+        // A test copy must not take the shortcuts from the copy in use.
+        guard !QuietMode.isOn else { return }
         for (action, shortcut) in Settings.shortcuts {
             var reference: EventHotKeyRef?
             let identifier = EventHotKeyID(signature: OSType(0x43455054), id: action.hotKeyID) // 'CEPT'
@@ -716,7 +719,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case .success(let url):
                 self?.showRecordingPreview(url, pointSize: self?.recorder.lastPointSize ?? .zero)
             case .failure(let error):
-                NSApp.activate(ignoringOtherApps: true)
+                QuietMode.activate()
                 self?.showError(L("error.recording", error.localizedDescription))
             }
         }
@@ -800,7 +803,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func openQuickLook(_ file: URL) {
         let helper = Process()
         helper.executableURL = Bundle.main.executableURL
-        helper.arguments = ["--quicklook", file.path]
+        helper.arguments = ["--quicklook", file.path] + QuietMode.arguments
         helper.terminationHandler = { [weak self] process in
             DispatchQueue.main.async { self?.quickLooks.removeAll { $0 === process } }
         }
@@ -903,7 +906,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let pinURL = dragDirectory.appendingPathComponent("pin-\(id).png")
         let helper = Process()
         helper.executableURL = Bundle.main.executableURL
-        helper.arguments = ["--editor", imageURL.path, pinURL.path] + (demo.map { [$0] } ?? [])
+        helper.arguments = ["--editor", imageURL.path, pinURL.path] + (demo.map { [$0] } ?? []) + QuietMode.arguments
         helper.terminationHandler = { [weak self] process in
             DispatchQueue.main.async {
                 guard let self = self else { return }

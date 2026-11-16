@@ -90,7 +90,7 @@ final class RegionSelector {
             window.makeKeyAndOrderFront(nil)
             window.makeFirstResponder(view)
         }
-        NSApp.activate(ignoringOtherApps: true)
+        QuietMode.activate()
     }
 
     /// Development aid: shows `rect` (view coordinates of the bar's screen) as selected.

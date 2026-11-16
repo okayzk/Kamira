@@ -784,7 +784,7 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
             window.setContentSize(tabs.tabViewItems[tabs.selectedTabViewItemIndex].view?.fittingSize ?? .zero)
             window.center()
         }
-        NSApp.activate(ignoringOtherApps: true)
+        QuietMode.activate()
         window.makeKeyAndOrderFront(nil)
     }
 

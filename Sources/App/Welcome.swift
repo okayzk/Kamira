@@ -225,12 +225,12 @@ final class WelcomeWindowController: SettingsSurface, NSWindowDelegate {
     func show() {
         refresh()
         if window.isVisible {
-            NSApp.activate(ignoringOtherApps: true)
+            QuietMode.activate()
             window.makeKeyAndOrderFront(nil)
             return
         }
         window.center()
-        NSApp.activate(ignoringOtherApps: true)
+        QuietMode.activate()
         window.makeKeyAndOrderFront(nil)
         // Each piece rises into place a moment after the one above it.
         for (index, view) in entrance.enumerated() {

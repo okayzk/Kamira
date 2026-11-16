@@ -533,7 +533,7 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         } else {
             window.center()
         }
-        NSApp.activate(ignoringOtherApps: true)
+        QuietMode.activate()
         window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(canvas)
     }

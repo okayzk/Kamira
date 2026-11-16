@@ -437,7 +437,7 @@ final class PreviewOverlay: NSPanel {
         picker.allowedContentTypes = [type]
         picker.nameFieldStringValue = name
         picker.directoryURL = Settings.saveDirectory
-        NSApp.activate(ignoringOtherApps: true)
+        QuietMode.activate()
         picker.begin { [weak self] result in
             if result == .OK, let url = picker.url {
                 finish(url)
