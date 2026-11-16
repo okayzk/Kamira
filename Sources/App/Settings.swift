@@ -129,6 +129,9 @@ enum Settings {
 /// one. Delete clears it, Esc leaves it as it was.
 final class ShortcutRecorder: NSButton {
     var shortcut: Shortcut? { didSet { refresh() } }
+    /// What the shortcut does. Assistive apps say it before the shortcut ("Capture Area,
+    /// ⇧⌘4"); the button itself shows only the keys.
+    var actionName: String? { didSet { refresh() } }
     var onChange: ((Shortcut?) -> Void)?
     /// Called when recording starts and ends: the app's own shortcuts must not fire
     /// while one of them is being typed here.
@@ -150,6 +153,10 @@ final class ShortcutRecorder: NSButton {
     private func refresh() {
         title = isRecording ? L("settings.shortcut.recording") : shortcut?.display ?? L("settings.shortcut.record")
         contentTintColor = shortcut == nil || isRecording ? .secondaryLabelColor : nil
+        if let actionName = actionName {
+            setAccessibilityLabel(actionName)
+            setAccessibilityValue(title)
+        }
     }
 
     override var acceptsFirstResponder: Bool { true }
@@ -329,13 +336,14 @@ class SettingsSurface: NSObject {
     func updateGroup(resize: @escaping () -> Void) -> NSView {
         var showInterval = {}
         let menus = updateMenus { showInterval() }
-        let intervalRow = row(L("settings.update.interval"), control: menus.interval)
+        let intervalRow = row(L("settings.update.interval"), id: "settings.updateInterval", control: menus.interval)
         let check = NSButton(title: L("about.checkForUpdates"), target: nil, action: nil)
+        check.setAccessibilityIdentifier("settings.checkForUpdates")
         check.bezelStyle = .rounded
         bind(check) { Updater.checkNow() }
         check.controlSize = .regular
         check.font = .systemFont(ofSize: NSFont.systemFontSize)
-        let group = group([row(L("settings.update"), control: menus.policy), intervalRow,
+        let group = group([row(L("settings.update"), id: "settings.updatePolicy", control: menus.policy), intervalRow,
                            row("", control: check)])
         // The separator above the second row goes with it.
         let separator = intervalRow.superview?.subviews.first { $0 is NSBox && $0 !== intervalRow }
@@ -402,7 +410,10 @@ class SettingsSurface: NSObject {
 
     /// One setting: its name (and, for the one that needs it, a line of explanation) on
     /// the left, its control on the right.
-    func row(_ title: String, hint: String? = nil, control: NSView) -> NSView {
+    /// `id`, when given, is the control's identifier, by which assistive apps and scripts
+    /// find it whatever the language.
+    func row(_ title: String, hint: String? = nil, id: String? = nil, control: NSView) -> NSView {
+        if let id = id { control.setAccessibilityIdentifier(id) }
         let label = NSTextField(labelWithString: title)
         var left: NSView = label
         if let hint = hint {
@@ -428,7 +439,22 @@ class SettingsSurface: NSObject {
         control.topAnchor.constraint(greaterThanOrEqualTo: row.topAnchor, constant: 8).isActive = true
         control.bottomAnchor.constraint(lessThanOrEqualTo: row.bottomAnchor, constant: -8).isActive = true
         control.setContentHuggingPriority(.required, for: .horizontal)
+        if !title.isEmpty { Self.name(control, title, help: hint) }
         return row
+    }
+
+    /// Gives the controls in `view` that have no name of their own the name written
+    /// beside them, so that assistive apps say "Open at Login, switch, on" rather than
+    /// "switch, on". Buttons with a title and controls named already keep theirs; a pop-up
+    /// menu's title is its choice, not its name.
+    static func name(_ view: NSView, _ title: String, help: String? = nil) {
+        let titled = view is NSButton && !(view is NSPopUpButton) && !(view as! NSButton).title.isEmpty
+        if let control = view as? NSControl, !(control is NSTextField && !(control as! NSTextField).isEditable),
+           control.accessibilityLabel()?.isEmpty ?? true, !titled {
+            control.setAccessibilityLabel(title)
+            if let help = help { control.setAccessibilityHelp(help) }
+        }
+        view.subviews.forEach { name($0, title, help: help) }
     }
 
     /// Small grey text beside or under a control.
@@ -486,6 +512,7 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
         window = NSWindow(contentRect: .zero, styleMask: [.titled, .closable], backing: .buffered, defer: false)
         super.init()
         window.isReleasedWhenClosed = false
+        window.setAccessibilityIdentifier("settings")
         window.delegate = self
         window.toolbarStyle = .preference
 
@@ -525,6 +552,7 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
 
         // The one way to quit when the menu bar icon is hidden.
         let quit = NSButton(title: "", target: self, action: #selector(quitClicked))
+        quit.setAccessibilityIdentifier("settings.quit")
         quit.bezelStyle = .rounded
         quit.attributedTitle = NSAttributedString(string: L("menu.quit", AppInfo.name), attributes: [
             .foregroundColor: NSColor.systemRed, .font: NSFont.systemFont(ofSize: NSFont.systemFontSize)
@@ -532,15 +560,16 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
 
         return pane([
             group([
-                row(L("settings.openAtLogin"), control: loginSwitch()),
-                row(L("settings.hideIcon"), hint: L("settings.hideIconHint"),
+                row(L("settings.openAtLogin"), id: "settings.openAtLogin", control: loginSwitch()),
+                row(L("settings.hideIcon"), hint: L("settings.hideIconHint"), id: "settings.hideMenuBarIcon",
                     control: toggle(Settings.hideMenuBarIcon) { Settings.hideMenuBarIcon = $0 })
             ]),
             group([
-                row(L("settings.saveLocation"), hint: L("settings.saveLocation.hint"), control: folder),
-                row(L("settings.hideDesktopIcons"),
+                row(L("settings.saveLocation"), hint: L("settings.saveLocation.hint"), id: "settings.saveLocation",
+                    control: folder),
+                row(L("settings.hideDesktopIcons"), id: "settings.hideDesktopIcons",
                     control: toggle(Settings.hideDesktopIcons) { Settings.hideDesktopIcons = $0 }),
-                row(L("settings.fadePins"), control: toggle(Settings.fadePinsOnHover) { Settings.fadePinsOnHover = $0 })
+                row(L("settings.fadePins"), id: "settings.fadePins", control: toggle(Settings.fadePinsOnHover) { Settings.fadePinsOnHover = $0 })
             ]),
             updateGroup { [weak self] in self?.tabs.resizeSelectedPane() },
             quit
@@ -556,23 +585,26 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
         shadow.numberOfTickMarks = WindowShadow.systemLevel + 1
         shadow.allowsTickMarkValuesOnly = true
         shadow.widthAnchor.constraint(equalToConstant: 140).isActive = true
+        shadow.setAccessibilityIdentifier("settings.windowShadow")
         bind(shadow) { [weak shadow] in Settings.windowShadowLevel = Int((shadow?.doubleValue ?? 1).rounded()) }
         let shadowRow = NSStackView(views: [caption(L("settings.shadow.none")), shadow, caption(L("settings.shadow.max"))])
         shadowRow.spacing = 8
 
         return pane([
             group([
-                row(L("settings.copyAfterCapture"),
+                row(L("settings.copyAfterCapture"), id: "settings.copyAfterCapture",
                     control: toggle(Settings.copyAfterCapture) { Settings.copyAfterCapture = $0 }),
-                row(L("settings.saveAfterCapture"),
+                row(L("settings.saveAfterCapture"), id: "settings.saveAfterCapture",
                     control: toggle(Settings.saveAfterCapture) { Settings.saveAfterCapture = $0 }),
-                nameRow(format: Settings.screenshotNameFormat, extension: "png", fallback: FileNaming.screenshotDefault) {
+                nameRow(format: Settings.screenshotNameFormat, extension: "png", fallback: FileNaming.screenshotDefault,
+                        id: "settings.screenshotName") {
                     Settings.screenshotNameFormat = $0
                 }
             ]),
             group([
-                row(L("settings.showPreview"), control: toggle(Settings.previewEnabled) { Settings.previewEnabled = $0 }),
-                row(L("settings.closePreview"),
+                row(L("settings.showPreview"), id: "settings.screenshotPreview",
+                    control: toggle(Settings.previewEnabled) { Settings.previewEnabled = $0 }),
+                row(L("settings.closePreview"), id: "settings.screenshotPreviewCloseAfter",
                     control: timeChoice(Settings.previewCloseAfter) { Settings.previewCloseAfter = $0 })
             ]),
             group([row(L("settings.windowShadow"), control: shadowRow)])
@@ -582,15 +614,16 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
     private func recordingPane() -> NSView {
         pane([
             group([
-                nameRow(format: Settings.recordingNameFormat, extension: "mp4", fallback: FileNaming.recordingDefault) {
+                nameRow(format: Settings.recordingNameFormat, extension: "mp4", fallback: FileNaming.recordingDefault,
+                        id: "settings.recordingName") {
                     Settings.recordingNameFormat = $0
                 },
                 sizeRow()
             ]),
             group([
-                row(L("settings.showPreview"),
+                row(L("settings.showPreview"), id: "settings.recordingPreview",
                     control: toggle(Settings.recordingPreviewEnabled) { Settings.recordingPreviewEnabled = $0 }),
-                row(L("settings.closePreview"),
+                row(L("settings.closePreview"), id: "settings.recordingPreviewCloseAfter",
                     control: timeChoice(Settings.recordingPreviewCloseAfter) { Settings.recordingPreviewCloseAfter = $0 })
             ])
         ])
@@ -610,9 +643,10 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
     }
 
     /// The pattern files are named by, with the name it gives right now underneath.
-    private func nameRow(format: String, extension ext: String, fallback: String,
+    private func nameRow(format: String, extension ext: String, fallback: String, id: String,
                          set: @escaping (String) -> Void) -> NSView {
         let field = NSTextField(string: format)
+        field.setAccessibilityIdentifier(id)
         field.placeholderString = fallback
         field.toolTip = L("settings.fileName.hint")
         field.controlSize = .small
@@ -637,6 +671,7 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
         restore.isBordered = false
         restore.contentTintColor = .secondaryLabelColor
         restore.toolTip = L("settings.fileName.restore")
+        restore.setAccessibilityIdentifier(id + ".restore")
         nameRestores[ObjectIdentifier(restore)] = { [weak self, weak field] in
             guard let field = field else { return }
             field.stringValue = fallback
@@ -655,6 +690,7 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
     /// it, kept up to date as it is typed.
     private func sizeRow() -> NSView {
         let field = NSTextField(string: String(Settings.maxRecordingGigabytes))
+        field.setAccessibilityIdentifier("settings.maxRecordingSize")
         field.controlSize = .small
         field.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         field.alignment = .right
@@ -700,6 +736,8 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
     private func shortcutsPane() -> NSView {
         let rows = ShortcutAction.allCases.map { action -> NSView in
             let recorder = ShortcutRecorder()
+            recorder.actionName = action.title
+            recorder.setAccessibilityIdentifier("settings.shortcut.\(action)")
             recorder.onRecording = { [weak self] recording in self?.onRecordingShortcut?(recording) }
             recorder.onChange = { [weak self] shortcut in
                 Settings.shortcuts = ShortcutAction.assigning(shortcut, to: action, in: Settings.shortcuts)
@@ -719,6 +757,7 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
 
         guideButton.title = L("settings.systemShortcuts")
         guideButton.bezelStyle = .rounded
+        guideButton.setAccessibilityIdentifier("settings.systemShortcuts")
         guideButton.target = self
         guideButton.action = #selector(showGuide)
         return pane([group(rows), guideButton])
@@ -736,8 +775,10 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
         let tagline = NSTextField(labelWithString: L("about.tagline"))
         let source = NSButton(title: L("about.source"), target: self, action: #selector(openSource))
         source.bezelStyle = .rounded
+        source.setAccessibilityIdentifier("settings.source")
         let welcome = NSButton(title: L("about.showWelcome"), target: self, action: #selector(showWelcomeClicked))
         welcome.bezelStyle = .rounded
+        welcome.setAccessibilityIdentifier("settings.showWelcome")
         let column = NSStackView(views: [icon, name, caption(L("about.version", version)), tagline, source, welcome,
                                          caption(L("about.license"))])
         column.orientation = .vertical

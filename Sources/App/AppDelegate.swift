@@ -322,14 +322,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The All-in-One palette: a floating Liquid Glass bar with one button per action.
     private func makePalette() {
         let row = NSStackView(views: [
-            paletteButton(L("palette.area"), symbol: "rectangle.dashed", action: #selector(captureRegion)),
-            paletteButton(L("palette.window"), symbol: "macwindow", action: #selector(captureWindow)),
-            paletteButton(L("palette.screen"), symbol: "display", action: #selector(captureScreen)),
-            paletteButton(L("palette.scrolling"), symbol: "arrow.up.and.down", action: #selector(captureScrolling)),
-            paletteButton(L("palette.text"), symbol: "text.viewfinder", action: #selector(captureText)),
-            paletteButton(L("palette.record"), symbol: "record.circle", action: #selector(recordScreen)),
-            paletteButton(L("palette.pin"), symbol: "pin", action: #selector(pinClipboard)),
-            paletteButton(L("palette.close"), symbol: "xmark", action: #selector(hidePalette))
+            paletteButton(L("palette.area"), id: "palette.area", symbol: "rectangle.dashed", action: #selector(captureRegion)),
+            paletteButton(L("palette.window"), id: "palette.window", symbol: "macwindow", action: #selector(captureWindow)),
+            paletteButton(L("palette.screen"), id: "palette.screen", symbol: "display", action: #selector(captureScreen)),
+            paletteButton(L("palette.scrolling"), id: "palette.scrolling", symbol: "arrow.up.and.down", action: #selector(captureScrolling)),
+            paletteButton(L("palette.text"), id: "palette.text", symbol: "text.viewfinder", action: #selector(captureText)),
+            paletteButton(L("palette.record"), id: "palette.record", symbol: "record.circle", action: #selector(recordScreen)),
+            paletteButton(L("palette.pin"), id: "palette.pin", symbol: "pin", action: #selector(pinClipboard)),
+            paletteButton(L("palette.close"), id: "palette.close", symbol: "xmark", action: #selector(hidePalette))
         ])
         row.orientation = .horizontal
         row.spacing = 4
@@ -354,15 +354,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         glass.contentView = row
         panel.contentView = glass
         panel.center()
+        panel.setAccessibilityIdentifier("palette")
         palette = panel
     }
 
-    private func paletteButton(_ title: String, symbol: String, action: Selector) -> NSButton {
+    private func paletteButton(_ title: String, id: String, symbol: String, action: Selector) -> NSButton {
         // NSButton's own image-above-title layout pins the image to the top edge, so the
         // icon and label are laid out by a centred stack inside an empty button instead.
         let button = PaletteButton(title: "", target: self, action: action)
         button.isBordered = false
         button.setAccessibilityLabel(title)
+        button.setAccessibilityIdentifier(id)
         let icon = NSImageView()
         icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: 20, weight: .regular))
@@ -636,16 +638,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(text, forType: .string)
                 // The toast shows the text itself, so a wrong reading is noticed at once.
-                self?.showToast(symbol: "doc.on.clipboard",
-                                message: L("ocr.copied", text.replacingOccurrences(of: "\n", with: " ")))
+                // VoiceOver reads only its start, about as much as the toast shows.
+                let line = text.replacingOccurrences(of: "\n", with: " ")
+                self?.showToast(symbol: "doc.on.clipboard", message: L("ocr.copied", line),
+                                announcement: L("ocr.copied", line.count > 30 ? line.prefix(30) + "…" : line))
             }
         }
     }
 
-    private func showToast(symbol: String, message: String) {
+    private func showToast(symbol: String, message: String, announcement: String? = nil) {
         guard let screen = NSScreen.underPointer else { return }
         toast?.close()
-        let new = Toast(symbol: symbol, message: message, on: screen)
+        let new = Toast(symbol: symbol, message: message, announcement: announcement, on: screen)
         toast = new
         new.show(for: 2.5) { [weak self, weak new] in
             if self?.toast === new { self?.toast = nil }

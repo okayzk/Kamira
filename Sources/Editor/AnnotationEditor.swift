@@ -462,6 +462,9 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
     var onClose: ((AnnotationEditor) -> Void)?
 
     /// Quick colour choices: red, yellow, green, blue, black, white.
+    /// What assistive apps call the quick colours, in the order of `palette`.
+    private static let paletteNames = [L("color.red"), L("color.yellow"), L("color.green"),
+                                       L("color.blue"), L("color.black"), L("color.white")]
     private static let palette: [CGColor] = [
         CGColor(srgbRed: 1.00, green: 0.23, blue: 0.19, alpha: 1),
         CGColor(srgbRed: 1.00, green: 0.80, blue: 0.00, alpha: 1),
@@ -506,6 +509,7 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         super.init()
 
         window.title = L("action.annotate")
+        window.setAccessibilityIdentifier("editor")
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false
@@ -655,6 +659,8 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         colorButton.image = Self.swatch(Self.palette[0], diameter: 20)
         colorButton.imagePosition = .imageOnly
         colorButton.toolTip = L("editor.color")
+        colorButton.setAccessibilityLabel(L("editor.color"))
+        colorButton.setAccessibilityIdentifier("editor.color")
         colorButton.target = self
         colorButton.action = #selector(showColorMenu)
 
@@ -676,6 +682,8 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         }
         toolPicker.target = self
         toolPicker.action = #selector(toolChanged)
+        // Its segments have no identifiers of their own: they are found by name or position.
+        toolPicker.setAccessibilityIdentifier("editor.tools")
 
         // Copy is the main way out of the editor, so it is the one tinted button.
         let copy = NSButton(title: L("action.copy"), target: self, action: #selector(copyResult))
@@ -683,17 +691,18 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         copy.borderShape = .capsule
         copy.bezelColor = .controlAccentColor
         copy.controlSize = .large
+        copy.setAccessibilityIdentifier("editor.copy")
 
-        zoomButton = iconButton("plus.magnifyingglass", L("editor.zoom"), #selector(zoomClicked))
+        zoomButton = iconButton("plus.magnifyingglass", L("editor.zoom"), "editor.zoom", #selector(zoomClicked))
         // The window has no title bar, so the bar also carries the way to close it.
         let row = DraggableRow(views: [
-            iconButton("arrow.uturn.backward", L("action.undo"), #selector(undo)),
+            iconButton("arrow.uturn.backward", L("action.undo"), "editor.undo", #selector(undo)),
             colorButton,
             separator(), toolPicker, separator(),
             zoomButton,
-            iconButton("pin", L("action.pin"), #selector(pinResult)),
-            iconButton("square.and.arrow.down", L("action.save"), #selector(saveResult)),
-            iconButton("xmark", L("editor.close"), #selector(closeEditor)),
+            iconButton("pin", L("action.pin"), "editor.pin", #selector(pinResult)),
+            iconButton("square.and.arrow.down", L("action.save"), "editor.save", #selector(saveResult)),
+            iconButton("xmark", L("editor.close"), "editor.close", #selector(closeEditor)),
             copy
         ])
         row.orientation = .horizontal
@@ -708,8 +717,9 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         return glass
     }
 
-    private func iconButton(_ symbol: String, _ label: String, _ action: Selector) -> NSButton {
+    private func iconButton(_ symbol: String, _ label: String, _ id: String, _ action: Selector) -> NSButton {
         let button = NSButton(image: Self.symbol(symbol, label), target: self, action: action)
+        button.setAccessibilityIdentifier(id)
         button.isBordered = false
         button.contentTintColor = .labelColor
         button.toolTip = label
@@ -760,6 +770,7 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
             let button = NSButton(image: Self.swatch(color, diameter: 22), target: self,
                                   action: #selector(swatchChosen(_:)))
             button.isBordered = false
+            button.setAccessibilityLabel(Self.paletteNames[index])
             button.tag = index
             return button
         })

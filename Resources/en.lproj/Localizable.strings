@@ -25,8 +25,15 @@
 "editor.move" = "Drag to Move";
 "editor.zoom" = "Zoom (⌘+, ⌘−, ⌘0)";
 "editor.moreColors" = "More Colours…";
+"color.red" = "Red";
+"color.yellow" = "Yellow";
+"color.green" = "Green";
+"color.blue" = "Blue";
+"color.black" = "Black";
+"color.white" = "White";
 
 "pin.close" = "Close Pin";
+"pin.label" = "Pinned Screenshot";
 
 "menu.captureArea" = "Capture Area";
 "menu.captureWindow" = "Capture Window";
@@ -80,6 +87,8 @@
 "preview.openWith" = "Open in %@";
 "preview.open" = "Open";
 "preview.saveAsGIF" = "Save as GIF";
+"preview.screenshot" = "Screenshot";
+"preview.recording" = "Recording";
 
 "toggle.on" = "On";
 "toggle.off" = "Off";
@@ -92,6 +101,8 @@
 "selector.countdown" = "3-Second Countdown";
 "selector.wholeScreen" = "Whole Screen";
 "selector.chooseWindow" = "Choose Window (Space; Esc to go back)";
+"selector.area.recording" = "Drag to select the area to record";
+"selector.area.scrolling" = "Drag to select the area to capture while scrolling";
 
 "settings.general" = "General";
 "settings.shortcuts" = "Shortcuts";

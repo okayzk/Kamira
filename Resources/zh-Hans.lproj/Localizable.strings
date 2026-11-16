@@ -25,8 +25,15 @@
 "editor.move" = "按住拖动窗口";
 "editor.zoom" = "放大（⌘+、⌘−、⌘0）";
 "editor.moreColors" = "更多颜色…";
+"color.red" = "红色";
+"color.yellow" = "黄色";
+"color.green" = "绿色";
+"color.blue" = "蓝色";
+"color.black" = "黑色";
+"color.white" = "白色";
 
 "pin.close" = "关闭贴图";
+"pin.label" = "贴在屏幕上的截图";
 
 "menu.captureArea" = "截取区域";
 "menu.captureWindow" = "截取窗口";
@@ -80,6 +87,8 @@
 "preview.openWith" = "用 %@ 打开";
 "preview.open" = "打开";
 "preview.saveAsGIF" = "存为 GIF";
+"preview.screenshot" = "刚截的图";
+"preview.recording" = "刚录的视频";
 
 "toggle.on" = "开";
 "toggle.off" = "关";
@@ -92,6 +101,8 @@
 "selector.countdown" = "3 秒倒计时";
 "selector.wholeScreen" = "整个屏幕";
 "selector.chooseWindow" = "选择窗口（空格；Esc 返回划区）";
+"selector.area.recording" = "在这里拖动，选出要录制的区域";
+"selector.area.scrolling" = "在这里拖动，选出要滚动截取的区域";
 
 "settings.general" = "通用";
 "settings.shortcuts" = "快捷键";

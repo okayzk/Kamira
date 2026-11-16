@@ -4,8 +4,13 @@ import AppKit
 /// itself. It never takes the mouse or the keyboard.
 final class Toast: NSPanel {
     private static let maxTextWidth: CGFloat = 380
+    /// What VoiceOver reads out when the toast appears.
+    private let announcement: String
 
-    init(symbol: String, message: String, on screen: NSScreen) {
+    /// `announcement` replaces the message for VoiceOver when the message is too long to
+    /// listen to whole.
+    init(symbol: String, message: String, announcement: String? = nil, on screen: NSScreen) {
+        self.announcement = announcement ?? message
         let icon = NSImageView()
         icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
@@ -45,6 +50,11 @@ final class Toast: NSPanel {
     func show(for seconds: TimeInterval, completion: @escaping () -> Void) {
         alphaValue = 0
         orderFrontRegardless()
+        // VoiceOver reads it out, wherever the user is: the message is the whole result.
+        NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested, userInfo: [
+            .announcement: announcement,
+            .priority: NSAccessibilityPriorityLevel.high.rawValue
+        ])
         animator().alphaValue = 1
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
             NSAnimationContext.runAnimationGroup({ _ in

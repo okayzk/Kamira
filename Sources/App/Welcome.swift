@@ -46,11 +46,17 @@ final class WelcomeWindowController: SettingsSurface, NSWindowDelegate {
 
         allow.target = self
         allow.action = #selector(allowRecording)
+        allow.setAccessibilityIdentifier("welcome.allowRecording")
+        turnOff.setAccessibilityIdentifier("welcome.systemShortcuts")
         turnOff.target = self
         turnOff.action = #selector(openKeyboard)
 
+        let login = loginSwitch()
+        login.setAccessibilityIdentifier("welcome.openAtLogin")
         let menus = updateMenus { [weak self] in self?.refresh() }
         interval = menus.interval
+        menus.policy.setAccessibilityIdentifier("welcome.updatePolicy")
+        menus.interval.setAccessibilityIdentifier("welcome.updateInterval")
         let updateMenus = NSStackView(views: [menus.policy, menus.interval])
         updateMenus.spacing = 6
 
@@ -58,7 +64,7 @@ final class WelcomeWindowController: SettingsSurface, NSWindowDelegate {
             row(permissionMark, L("welcome.permission"), Self.detail(L("welcome.permission.detail")), beside: allow),
             row(keysMark, L("welcome.shortcuts"), keysDetail, below: shortcutList()),
             row(Mark(symbol: "power", colour: .systemOrange), L("settings.openAtLogin"),
-                Self.detail(L("welcome.login.detail")), beside: loginSwitch()),
+                Self.detail(L("welcome.login.detail")), beside: login),
             row(Mark(symbol: "arrow.triangle.2.circlepath", colour: .systemPurple), L("settings.update"),
                 Self.detail(L("welcome.update.detail")), below: updateMenus)
         ]
@@ -73,6 +79,7 @@ final class WelcomeWindowController: SettingsSurface, NSWindowDelegate {
         start.tintProminence = .primary
         start.controlSize = .large
         start.keyEquivalent = "\r"
+        start.setAccessibilityIdentifier("welcome.start")
         start.widthAnchor.constraint(equalToConstant: 200).isActive = true
 
         let column = NSStackView(views: [demo, title, list, start])
@@ -106,6 +113,7 @@ final class WelcomeWindowController: SettingsSurface, NSWindowDelegate {
                                      glass.topAnchor.constraint(equalTo: clip.topAnchor),
                                      glass.bottomAnchor.constraint(equalTo: clip.bottomAnchor)])
         window.contentView = clip
+        window.setAccessibilityIdentifier("welcome")
         refresh()
     }
 
@@ -143,6 +151,7 @@ final class WelcomeWindowController: SettingsSurface, NSWindowDelegate {
             constraints.append(words.trailingAnchor.constraint(equalTo: row.trailingAnchor))
         }
         NSLayoutConstraint.activate(constraints)
+        for control in [beside, below].compactMap({ $0 }) { Self.name(control, title, help: detail.stringValue) }
         // Wrapped text needs a width to wrap at: the row's, less the mark and the control.
         detail.preferredMaxLayoutWidth = Self.width - 2 * Self.inset - Mark.side - 10
             - (beside.map { $0.fittingSize.width + 12 } ?? 0)
@@ -155,6 +164,8 @@ final class WelcomeWindowController: SettingsSurface, NSWindowDelegate {
         var lines: [NSView] = []
         for action in Self.keyActions {
             let recorder = ShortcutRecorder()
+            recorder.actionName = action.title
+            recorder.setAccessibilityIdentifier("welcome.shortcut.\(action)")
             recorder.controlSize = .small
             recorder.onRecording = { [weak self] recording in self?.onRecordingShortcut?(recording) }
             recorder.onChange = { [weak self] shortcut in

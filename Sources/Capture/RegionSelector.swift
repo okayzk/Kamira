@@ -52,7 +52,13 @@ final class RegionSelector {
             window.hasShadow = false
             window.isReleasedWhenClosed = false
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.setAccessibilityIdentifier("selector")
             let view = SelectionView(frame: NSRect(origin: .zero, size: screen.frame.size))
+            // Every screen's area says what dragging in it is for, also where the bar is not.
+            view.setAccessibilityElement(true)
+            view.setAccessibilityRole(.group)
+            view.setAccessibilityLabel(purpose == .recording ? L("selector.area.recording") : L("selector.area.scrolling"))
+            view.setAccessibilityIdentifier("selector.area")
             view.onCancel = { [weak self] in self?.end(nil) }
             view.onRecord = { [weak self] gif in self?.record(gif: gif) }
             view.onPickWindow = { [weak self] in self?.pickWindow() }
@@ -412,6 +418,10 @@ private final class RecordingControlBar: NSView {
         fullScreen.onClick = { [weak self] in self?.onFullScreen?() }
         let window = BarButton(label: L("selector.chooseWindow"), symbol: "macwindow")
         window.onClick = { [weak self] in self?.onPickWindow?() }
+        for (button, id) in [(microphone, "microphone"), (systemAudio, "systemAudio"), (timer, "countdown"),
+                             (fullScreen, "wholeScreen"), (window, "chooseWindow"), (gif, "recordGIF"), (video, "record")] {
+            button.setAccessibilityIdentifier("selector." + id)
+        }
         gif.onClick = { [weak self] in self?.onRecord?(true) }
         video.onClick = { [weak self] in self?.onRecord?(false) }
         gif.isEnabled = false

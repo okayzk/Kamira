@@ -60,6 +60,8 @@ final class RoundIconButton: NSControl {
 
     override func mouseDown(with event: NSEvent) { pressed = true }
 
+    override func accessibilityPerformPress() -> Bool { sendAction(action, to: target) }
+
     override func mouseUp(with event: NSEvent) {
         guard pressed else { return }
         pressed = false
@@ -72,6 +74,30 @@ final class RoundIconButton: NSControl {
 func makeRoundIconButton(symbol: String, label: String, diameter: CGFloat = 24,
                          target: AnyObject, action: Selector) -> RoundIconButton {
     RoundIconButton(symbol: symbol, label: label, diameter: diameter, target: target, action: action)
+}
+
+/// Makes `view`, a picture whose buttons show only under the pointer, one element that
+/// assistive apps can find and use without the pointer: named `label`, with an action for
+/// each of its buttons that does what clicking that button does. Nothing on screen
+/// changes, and a hidden button stays hidden.
+func exposeAsImage(_ view: NSView, label: String, id: String, buttonsIn container: NSView) {
+    view.setAccessibilityElement(true)
+    view.setAccessibilityIdentifier(id)
+    view.setAccessibilityRole(.image)
+    view.setAccessibilityLabel(label)
+    func buttons(in view: NSView) -> [NSControl] {
+        view.subviews.flatMap { subview -> [NSControl] in
+            if let control = subview as? NSControl, control.action != nil { return [control] }
+            return buttons(in: subview)
+        }
+    }
+    view.setAccessibilityCustomActions(buttons(in: container).map { control in
+        let name = control.accessibilityLabel() ?? (control as? NSButton)?.title ?? ""
+        return NSAccessibilityCustomAction(name: name) { [weak control] in
+            guard let control = control, let action = control.action else { return false }
+            return NSApp.sendAction(action, to: control.target, from: control)
+        }
+    })
 }
 
 /// The thumbnail card: shows the image, reports pointer activity, and lets the capture
@@ -237,6 +263,9 @@ final class PreviewOverlay: NSPanel {
         card.onDragCompleted = { [weak self] in self?.dismiss() }
         contentView = card
         buildControls(in: card)
+        setAccessibilityIdentifier("preview")
+        exposeAsImage(card, label: isRecording ? L("preview.recording") : L("preview.screenshot"), id: "preview.image",
+                      buttonsIn: controls)
     }
 
     private var isVideo: Bool { recordingURL?.pathExtension.lowercased() == "mp4" }

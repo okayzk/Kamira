@@ -101,6 +101,8 @@ final class PinnedImageWindow: NSPanel {
         ])
         // On a very small pin there is only room for the close button.
         if size.height < 70 { annotate.removeFromSuperview() }
+        setAccessibilityIdentifier("pin")
+        exposeAsImage(view, label: L("pin.label"), id: "pin.image", buttonsIn: view)
 
         setFrameOrigin(NSPoint(x: visible.midX - size.width / 2 + offset,
                                y: visible.midY - size.height / 2 - offset))
