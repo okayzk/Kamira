@@ -95,8 +95,8 @@ final class SettingsWindowController: SettingsSurface, NSWindowDelegate, NSTextF
     private func screenshotsPane() -> NSView {
         // From none to the system's own in five steps; the slider stops only on those.
         let shadow = NSSlider(value: Double(Settings.windowShadowLevel), minValue: 0,
-                              maxValue: Double(WindowShadow.systemLevel), target: nil, action: nil)
-        shadow.numberOfTickMarks = WindowShadow.systemLevel + 1
+                              maxValue: Double(WindowShadowLevel.system), target: nil, action: nil)
+        shadow.numberOfTickMarks = WindowShadowLevel.system + 1
         shadow.allowsTickMarkValuesOnly = true
         shadow.widthAnchor.constraint(equalToConstant: 140).isActive = true
         shadow.setAccessibilityIdentifier("settings.windowShadow")

@@ -3,7 +3,7 @@ import AppKit
 /// The top of the welcome window: a small desktop on which, over and over, the pointer
 /// drags out a selection, the screen flashes, the preview card rises in the bottom-left
 /// corner with the picture in it, and is dragged away. Drawn with layers from the app's
-/// own measurements (the card is `PreviewOverlay.cardSize`, scaled), so it shows the app
+/// own measurements (the card is `PreviewCard.size`, scaled), so it shows the app
 /// as it is. With Reduce Motion on it is one still frame: the card, just arrived.
 final class WelcomeDemo: NSView {
     static let size = NSSize(width: 376, height: 176)
@@ -134,8 +134,8 @@ final class WelcomeDemo: NSView {
 
     /// The preview card, scaled: the selected picture filling a rounded rectangle.
     private func card() -> CALayer {
-        let size = CGSize(width: PreviewOverlay.cardSize.width * cardScale,
-                          height: PreviewOverlay.cardSize.height * cardScale)
+        let size = CGSize(width: PreviewCard.size.width * cardScale,
+                          height: PreviewCard.size.height * cardScale)
         let card = CALayer()
         card.frame = CGRect(origin: CGPoint(x: 12, y: 12), size: size)
         card.cornerRadius = 10 * cardScale + 2

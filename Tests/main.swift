@@ -93,13 +93,13 @@ do {
             == CGSize(width: 384, height: 284), "the third step triples them")
     // The setting: 0 is none, the last step is the system's own shadow. A choice made
     // before there were steps carries over.
-    check(WindowShadow.level(stored: nil, earlier: nil) == 1, "small by default")
-    check(WindowShadow.level(stored: 3, earlier: "none") == 3, "the stored step wins")
-    check(WindowShadow.level(stored: 9, earlier: nil) == WindowShadow.systemLevel, "kept within the steps")
-    check(WindowShadow.level(stored: nil, earlier: "none") == 0, "earlier choice: none")
-    check(WindowShadow.level(stored: nil, earlier: "small") == 1, "earlier choice: small")
-    check(WindowShadow.level(stored: nil, earlier: "system") == WindowShadow.systemLevel, "earlier choice: system")
-    check(WindowShadow.systemLevel == 4, "five steps from none to the system's")
+    check(WindowShadowLevel.level(stored: nil, earlier: nil) == 1, "small by default")
+    check(WindowShadowLevel.level(stored: 3, earlier: "none") == 3, "the stored step wins")
+    check(WindowShadowLevel.level(stored: 9, earlier: nil) == WindowShadowLevel.system, "kept within the steps")
+    check(WindowShadowLevel.level(stored: nil, earlier: "none") == 0, "earlier choice: none")
+    check(WindowShadowLevel.level(stored: nil, earlier: "small") == 1, "earlier choice: small")
+    check(WindowShadowLevel.level(stored: nil, earlier: "system") == WindowShadowLevel.system, "earlier choice: system")
+    check(WindowShadowLevel.system == 4, "five steps from none to the system's")
 }
 
 // Annotations are stored in image points and exported at full pixel resolution.

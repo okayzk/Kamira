@@ -462,8 +462,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// added afterwards by a helper process, which leaves anything but a window capture alone.
     private func captureInteractively(_ arguments: [String]) {
         let level = Settings.windowShadowLevel
-        capture(arguments + (level == WindowShadow.systemLevel ? [] : ["-o"]), interactive: true) { [weak self] file in
-            guard level > 0, level < WindowShadow.systemLevel, FileManager.default.fileExists(atPath: file.path) else {
+        capture(arguments + (level == WindowShadowLevel.system ? [] : ["-o"]), interactive: true) { [weak self] file in
+            guard level > 0, level < WindowShadowLevel.system, FileManager.default.fileExists(atPath: file.path) else {
                 self?.captureFinished(file)
                 return
             }
@@ -868,7 +868,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// column; collapsed, older ones peek out narrower above the newest like a deck of cards.
     private func layoutPreviews() {
         let visible = previewScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let size = PreviewOverlay.cardSize
+        let size = PreviewCard.size
         let base = NSPoint(x: visible.minX + 18, y: visible.minY + 18)
         for (index, overlay) in previews.reversed().enumerated() {
             let depth = CGFloat(index)

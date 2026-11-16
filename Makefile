@@ -14,10 +14,11 @@ run: build
 test:
 	@./scripts/test.sh
 
-# Everything that must pass before a commit: tests, both text tables, the app's name
+# Everything that must pass before a commit: tests, the folders' boundaries, both text tables, the app's name
 # against app.env, release notes, the incident ledger, and what the change's paths ask
 # for on top.
 check: test
+	@./scripts/check_structure.sh
 	@python3 scripts/check_localization.py
 	@python3 scripts/check_identity.py
 	@./scripts/check_release_notes.sh

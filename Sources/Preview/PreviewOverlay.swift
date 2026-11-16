@@ -9,8 +9,6 @@ import UniformTypeIdentifiers
 /// A screenshot lives in memory (`capture`). A recording is a file already in the save
 /// folder (`recordingURL`): closing the overlay leaves it there, Save As copies it elsewhere.
 final class PreviewOverlay: NSPanel {
-    static let cardSize = NSSize(width: 220, height: 138)
-
     let capture: CapturedImage?
     private(set) var recordingURL: URL?
     var onPin: ((CapturedImage) -> Void)?
@@ -43,16 +41,16 @@ final class PreviewOverlay: NSPanel {
     init(capture: CapturedImage) {
         self.capture = capture
         gifMaxSide = 0
-        card = CardView(frame: NSRect(origin: .zero, size: Self.cardSize))
-        super.init(contentRect: NSRect(origin: .zero, size: Self.cardSize),
+        card = CardView(frame: NSRect(origin: .zero, size: PreviewCard.size))
+        super.init(contentRect: NSRect(origin: .zero, size: PreviewCard.size),
                    styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         configure()
         if let file = capture.fileURL {
             loadThumbnail(of: file, imageSize: capture.pixelSize)
         } else {
             // Enough pixels to aspect-fill the card on a Retina display, and no more.
-            let fill = max(Self.cardSize.width / capture.pixelSize.width,
-                           Self.cardSize.height / capture.pixelSize.height)
+            let fill = max(PreviewCard.size.width / capture.pixelSize.width,
+                           PreviewCard.size.height / capture.pixelSize.height)
             let longSide = max(capture.pixelSize.width, capture.pixelSize.height)
             card.image = capture.downsampled(maxPixel: min(longSide * fill * 2, 1600))
         }
@@ -63,8 +61,8 @@ final class PreviewOverlay: NSPanel {
         capture = nil
         recordingURL = url
         self.gifMaxSide = gifMaxSide
-        card = CardView(frame: NSRect(origin: .zero, size: Self.cardSize))
-        super.init(contentRect: NSRect(origin: .zero, size: Self.cardSize),
+        card = CardView(frame: NSRect(origin: .zero, size: PreviewCard.size))
+        super.init(contentRect: NSRect(origin: .zero, size: PreviewCard.size),
                    styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         configure()
         loadThumbnail(of: url)
@@ -106,11 +104,11 @@ final class PreviewOverlay: NSPanel {
     /// so none of the memory that decoding needs is ever allocated here. The request asks
     /// for enough pixels to aspect-fill the card.
     private func loadThumbnail(of url: URL, imageSize: CGSize? = nil) {
-        var size = CGSize(width: Self.cardSize.width * 1.6, height: Self.cardSize.width * 1.6)
+        var size = CGSize(width: PreviewCard.size.width * 1.6, height: PreviewCard.size.width * 1.6)
         if let image = imageSize, image.width > 0, image.height > 0 {
             // The thumbnail fits inside the requested size, so a very tall or wide image
             // (a scrolling capture) needs a matching request to still cover the card sharply.
-            let fill = max(Self.cardSize.width / image.width, Self.cardSize.height / image.height)
+            let fill = max(PreviewCard.size.width / image.width, PreviewCard.size.height / image.height)
             let cap = min(1, 3000 / max(image.width * fill, image.height * fill))
             size = CGSize(width: image.width * fill * cap, height: image.height * fill * cap)
         }

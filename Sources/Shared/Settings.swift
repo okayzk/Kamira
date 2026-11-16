@@ -57,10 +57,21 @@ enum Settings {
                     return URL(fileURLWithPath: path, isDirectory: true)
                 }
             }
-            return ScreenRecorder.outputDirectory
+            return systemSaveDirectory
         }
         set { UserDefaults.standard.set(newValue.path, forKey: "saveDirectory") }
     }
+    /// Folder the system saves screenshots to, falling back to the Desktop.
+    private static var systemSaveDirectory: URL {
+        if let path = UserDefaults(suiteName: "com.apple.screencapture")?.string(forKey: "location") {
+            let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true)
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+               isDirectory.boolValue { return url }
+        }
+        return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
+    }
+
     /// The patterns saved files are named by; see `FileNaming`.
     static var screenshotNameFormat: String {
         get { UserDefaults.standard.string(forKey: FileNaming.screenshotKey) ?? FileNaming.screenshotDefault }
@@ -91,11 +102,11 @@ enum Settings {
         set { UserDefaults.standard.set(newValue, forKey: "hideMenuBarIcon") }
     }
 
-    /// The shadow around a window capture: 0 for none, up to `WindowShadow.systemLevel`
+    /// The shadow around a window capture: 0 for none, up to `WindowShadowLevel.system`
     /// for the system's own.
     static var windowShadowLevel: Int {
         get {
-            WindowShadow.level(stored: UserDefaults.standard.object(forKey: "windowShadowLevel") as? Int,
+            WindowShadowLevel.level(stored: UserDefaults.standard.object(forKey: "windowShadowLevel") as? Int,
                                earlier: UserDefaults.standard.string(forKey: "windowShadow"))
         }
         set { UserDefaults.standard.set(newValue, forKey: "windowShadowLevel") }

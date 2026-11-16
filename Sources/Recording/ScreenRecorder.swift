@@ -51,17 +51,6 @@ final class ScreenRecorder: NSObject, SCStreamDelegate,
         LogFile.append("\(Date()) \(message)", to: logURL)
     }
 
-    /// Folder the system saves screenshots to, falling back to the Desktop.
-    static var outputDirectory: URL {
-        if let path = UserDefaults(suiteName: "com.apple.screencapture")?.string(forKey: "location") {
-            let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true)
-            var isDirectory: ObjCBool = false
-            if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
-               isDirectory.boolValue { return url }
-        }
-        return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
-    }
-
     // MARK: Choosing what to record
 
     /// Records `rect` (global AppKit coordinates) of `screen`; nil records the whole screen.

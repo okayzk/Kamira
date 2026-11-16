@@ -8,25 +8,11 @@ import UniformTypeIdentifiers
 /// one and this adds one of that size. Runs in a helper process
 /// (`--window-shadow <file> <level>`), since it decodes the picture.
 enum WindowShadow {
-    /// The steps of the setting run from 0, no shadow, to this one, the system's own;
-    /// those in between are drawn here.
-    static let systemLevel = 4
     /// In points, at the first step: how soft the shadow is, how far it drops, and the
     /// room it is given. Each further step adds as much again.
     static let blur: CGFloat = 10
     static let drop: CGFloat = 4
     static let margin = (side: CGFloat(14), top: CGFloat(10), bottom: CGFloat(18))
-
-    /// The step the preferences hold. `earlier` is the choice of none, small or system
-    /// that the setting was before it had steps.
-    static func level(stored: Int?, earlier: String?) -> Int {
-        if let stored = stored { return min(max(stored, 0), systemLevel) }
-        switch earlier {
-        case "none": return 0
-        case "system": return systemLevel
-        default: return 1
-        }
-    }
 
     /// The capture with a shadow around it as PNG bytes, or nil when it is not a window
     /// capture (nothing see-through at its corners) and should stay as it is.
