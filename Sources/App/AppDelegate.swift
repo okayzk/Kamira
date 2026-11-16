@@ -33,8 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var scrollCapture: ScrollCaptureSession?
     /// The message currently on screen, if any.
     private var toast: Toast?
-    /// The helper that prepares text recognition at launch; see `TextRecognizer.runWarmUp`.
-    private var textRecognitionWarmUp: Process?
+    private let textReader = TextReader()
     private var regionSelector: RegionSelector?
     /// Outline around the region being recorded.
     private var recordingFrame: RecordingFrameWindow?
@@ -63,7 +62,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configureRecorder()
         if !QuietMode.isOn { Updater.start() }
         QuietMode.start()
-        warmUpTextRecognition()
+        configureTextReader()
+        textReader.warmUp()
         // The first start only. `--demo-welcome` shows it again; `--demo-welcome-pending`
         // as on a Mac where nothing is allowed or switched off yet.
         let demo = CommandLine.arguments.contains { $0.hasPrefix("--demo") }
@@ -168,7 +168,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // `--demo-ocr <image>` recognises the text in an image file, as after a selection.
         if let index = arguments.firstIndex(of: "--demo-ocr"), index + 1 < arguments.count {
-            recognizeText(in: URL(fileURLWithPath: arguments[index + 1]), removingFile: false)
+            textReader.read(URL(fileURLWithPath: arguments[index + 1]), removingFile: false)
         }
         // `--demo-recording <file>` shows the floating preview for an existing recording.
         if let index = arguments.firstIndex(of: "--demo-recording"), index + 1 < arguments.count {
@@ -579,64 +579,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func captureText() {
         capture(["-i", "-x"], interactive: true, hidingDesktopIcons: false) { [weak self] file in
             guard FileManager.default.fileExists(atPath: file.path) else { return }
-            self?.recognizeText(in: file, removingFile: true)
+            self?.textReader.read(file, removingFile: true)
         }
     }
 
-    /// Starts the warm-up helper, which reads one drawn picture so that the user's first
-    /// reading does not wait for the system to prepare its models.
-    private func warmUpTextRecognition() {
-        let helper = Process()
-        helper.executableURL = Bundle.main.executableURL
-        helper.arguments = ["--ocr-warm-up"]
-        guard (try? helper.run()) != nil else { return }
-        textRecognitionWarmUp = helper
-    }
-
-    /// Recognises the text in a helper process (see `TextRecognizer`), copies it and
-    /// says so in a toast.
-    private func recognizeText(in file: URL, removingFile: Bool) {
-        // While the warm-up still prepares the models, a second reader would prepare them
-        // again alongside it and finish later than the warm-up does (52 s against 42 s,
-        // measured): wait for it instead, and say why nothing happens yet.
-        if let warmUp = textRecognitionWarmUp, warmUp.isRunning {
-            showToast(symbol: "text.viewfinder", message: L("ocr.preparing"))
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                warmUp.waitUntilExit()
-                DispatchQueue.main.async { self?.recognizeText(in: file, removingFile: removingFile) }
-            }
-            return
+    private func configureTextReader() {
+        textReader.onPreparing = { [weak self] in
+            self?.showToast(symbol: "text.viewfinder", message: L("ocr.preparing"))
         }
-        let helper = Process()
-        let pipe = Pipe()
-        helper.executableURL = Bundle.main.executableURL
-        helper.arguments = ["--ocr", file.path]
-        helper.standardOutput = pipe
-        do { try helper.run() } catch {
-            if removingFile { try? FileManager.default.removeItem(at: file) }
-            showError(L("error.textRecognition", error.localizedDescription))
-            return
+        textReader.onNothingFound = { [weak self] in
+            self?.showToast(symbol: "text.viewfinder", message: L("ocr.noText"))
         }
-        // Read while the helper runs: a long text would otherwise fill the pipe and stall it.
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            helper.waitUntilExit()
-            if removingFile { try? FileManager.default.removeItem(at: file) }
-            let text = helper.terminationStatus == 0 ? String(data: data, encoding: .utf8) ?? "" : ""
-            DispatchQueue.main.async {
-                guard !text.isEmpty else {
-                    self?.showToast(symbol: "text.viewfinder", message: L("ocr.noText"))
-                    return
-                }
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
-                // The toast shows the text itself, so a wrong reading is noticed at once.
-                // VoiceOver reads only its start, about as much as the toast shows.
-                let line = text.replacingOccurrences(of: "\n", with: " ")
-                self?.showToast(symbol: "doc.on.clipboard", message: L("ocr.copied", line),
-                                announcement: L("ocr.copied", line.count > 30 ? line.prefix(30) + "…" : line))
-            }
+        textReader.onCopied = { [weak self] text in
+            // The toast shows the text itself, so a wrong reading is noticed at once.
+            // VoiceOver reads only its start, about as much as the toast shows.
+            let line = text.replacingOccurrences(of: "\n", with: " ")
+            self?.showToast(symbol: "doc.on.clipboard", message: L("ocr.copied", line),
+                            announcement: L("ocr.copied", line.count > 30 ? line.prefix(30) + "…" : line))
         }
+        textReader.onError = { [weak self] message in self?.showError(message) }
     }
 
     private func showToast(symbol: String, message: String, announcement: String? = nil) {
