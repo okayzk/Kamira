@@ -107,27 +107,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             var options = RecordingOptions()
             options.gif = arguments.contains("--gif")
             options.microphone = arguments.contains("--mic")
-            let recorder = recording.recorder
-            recorder.options = options
-            // Outside the app's own temporary folder, which is emptied on quit, and never
-            // in the maintainer's save folder.
-            recorder.workDirectory = FileManager.default.temporaryDirectory
-            recorder.saveDirectory = FileManager.default.temporaryDirectory
-            // Stops at the size set in Settings, as a real recording does.
-            recorder.maxBytes = RecordingSize.bytes(gigabytes: Settings.maxRecordingGigabytes)
             recording.onFinished = { result in
                 print("demo-record:", result)
                 // Long enough for a message about a limit to be seen.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) { NSApp.terminate(nil) }
             }
-            if let region = region { recording.showFrame(around: region) }
             // `--window <number>` records that window instead.
-            if let at = arguments.firstIndex(of: "--window"), at + 1 < arguments.count,
-               let number = CGWindowID(arguments[at + 1]) {
-                recorder.start(windowID: number)
-            } else {
-                recorder.start(region: region, on: screen)
+            var window: CGWindowID?
+            if let at = arguments.firstIndex(of: "--window"), at + 1 < arguments.count {
+                window = CGWindowID(arguments[at + 1])
             }
+            // Outside the app's own temporary folder, which is emptied on quit, and never
+            // in the maintainer's save folder.
+            recording.startDemo(region: region, on: screen, windowID: window, options: options,
+                                directory: FileManager.default.temporaryDirectory)
             DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
                 self?.recording.stop()
             }
@@ -300,7 +293,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// photographs and stitches it; Done turns the result into an ordinary screenshot.
     private func captureScrolling() {
         hidePalette()
-        guard scrollCapture == nil, regionSelector == nil, !recording.recorder.isBusy else { return }
+        guard scrollCapture == nil, regionSelector == nil, !recording.isBusy else { return }
         let selector = RegionSelector(purpose: .scrollingCapture) { [weak self] request in
             guard let self = self else { return }
             self.regionSelector = nil
@@ -365,7 +358,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// then choose video or GIF. Nothing is recorded before that choice.
     private func recordScreen() {
         hidePalette()
-        guard !recording.recorder.isBusy, regionSelector == nil, recording.countdown == nil else { return }
+        guard !recording.isBusy, regionSelector == nil, recording.countdown == nil else { return }
         let selector = RegionSelector { [weak self] request in
             guard let self = self else { return }
             self.regionSelector = nil
@@ -392,7 +385,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         recording.onFinished = { [weak self] result in
             switch result {
             case .success(let url):
-                self?.previews.showRecording(url, pointSize: self?.recording.recorder.lastPointSize ?? .zero)
+                self?.previews.showRecording(url, pointSize: self?.recording.lastPointSize ?? .zero)
             case .failure(let error):
                 QuietMode.activate()
                 self?.showError(L("error.recording", error.localizedDescription))
@@ -403,9 +396,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// While recording, the menu bar item shows the elapsed time and a click stops the
     /// recording instead of opening the menu.
     private func updateRecordingIndicator() {
-        let recorder = recording.recorder
-        statusMenu.show(recorder.isConverting ? .convertingToGIF
-                        : recorder.isRecording ? .recording(since: recorder.startDate) : .idle)
+        statusMenu.show(recording.isConverting ? .convertingToGIF
+                        : recording.isRecording ? .recording(since: recording.startDate) : .idle)
     }
 
     // MARK: Previews, pins and the editor
@@ -416,7 +408,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         previews.onPin = { [weak self] capture in self?.pins.add(capture) }
         previews.onAnnotate = { [weak self] capture in self?.editors.open(capture) }
         previews.convertToGIF = { video, gif, maxSide, done in
-            ScreenRecorder.convertToGIF(video: video, gif: gif, maxSide: maxSide, completion: done)
+            RecordingController.convertToGIF(video: video, gif: gif, maxSide: maxSide, completion: done)
         }
         pins.onAnnotate = { [weak self] capture in self?.editors.open(capture) }
         editors.onPin = { [weak self] capture in self?.pins.add(capture) }

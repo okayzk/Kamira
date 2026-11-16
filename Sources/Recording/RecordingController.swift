@@ -4,9 +4,8 @@ import AppKit
 /// for, with the desktop icons covered if the settings say so, and with an outline
 /// around a region. Ends it, and tells the app how it went.
 final class RecordingController {
-    /// Does the recording itself; the app reads its state (recording, converting, the
-    /// start time) to show it in the menu bar.
-    let recorder = ScreenRecorder()
+    private let recorder = ScreenRecorder()
+    /// Called whenever `isRecording`, `isConverting` or `startDate` change.
     var onStateChange: (() -> Void)?
     var onLimitReached: ((RecordingLimit) -> Void)?
     var onFinished: ((Result<URL, Error>) -> Void)?
@@ -17,6 +16,14 @@ final class RecordingController {
     private var frame: RecordingFrameWindow?
     /// Hides the desktop icons for as long as a recording runs.
     private var cover: DesktopCoverSession?
+
+    /// Recording, or writing a GIF from a recording.
+    var isBusy: Bool { recorder.isBusy }
+    var isRecording: Bool { recorder.isRecording }
+    var isConverting: Bool { recorder.isConverting }
+    var startDate: Date? { recorder.startDate }
+    /// The size in points of what was recorded last, for its preview.
+    var lastPointSize: CGSize { recorder.lastPointSize }
 
     init(workDirectory: URL) {
         recorder.workDirectory = workDirectory
@@ -67,7 +74,29 @@ final class RecordingController {
         window.run(completion: start)
     }
 
+    /// For `--demo-record`: records at once, without countdown or cover, into `directory`
+    /// rather than the user's save folder, stopping at the size set in Settings as a real
+    /// recording does. `windowID` records that window instead.
+    func startDemo(region: CGRect?, on screen: NSScreen, windowID: CGWindowID?,
+                   options: RecordingOptions, directory: URL) {
+        recorder.options = options
+        recorder.workDirectory = directory
+        recorder.saveDirectory = directory
+        recorder.maxBytes = RecordingSize.bytes(gigabytes: Settings.maxRecordingGigabytes)
+        if let region = region { showFrame(around: region) }
+        if let windowID = windowID {
+            recorder.start(windowID: windowID)
+        } else {
+            recorder.start(region: region, on: screen)
+        }
+    }
+
     func stop() { recorder.stop() }
+
+    /// Converts a recorded video to a GIF in a helper process; `completion` gets whether it worked.
+    static func convertToGIF(video: URL, gif: URL, maxSide: Int, completion: @escaping (Bool) -> Void) {
+        ScreenRecorder.convertToGIF(video: video, gif: gif, maxSide: maxSide, completion: completion)
+    }
 
     /// The outline around the region being recorded.
     func showFrame(around rect: CGRect) {
