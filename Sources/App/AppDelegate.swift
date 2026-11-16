@@ -1,14 +1,13 @@
 import AppKit
-import Carbon.HIToolbox
 
-/// Menu bar item, global shortcut, All-in-One palette, and the capture → preview → pin flow.
+/// Starts the app and joins its features: the menu bar, the Quick Panel and the global
+/// shortcuts start them, and each one's result is handed to the next with callbacks
+/// (a screenshot to its preview, a preview to a pin or the editor, and so on). The
+/// features themselves know nothing of each other.
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var statusItem: NSStatusItem!
-    private var palette: NSPanel?
-    private var hotKeys: [EventHotKeyRef?] = []
-    /// The menu items that show an action's global shortcut.
-    private var shortcutItems: [ShortcutAction: NSMenuItem] = [:]
-    private var hotKeyHandler: EventHandlerRef?
+    private var statusMenu: StatusMenu!
+    private var quickPanel: QuickPanel!
+    private var hotKeys: HotKeys!
     /// The settings window, only while it is open.
     private var settingsWindow: SettingsWindowController?
     private var welcomeWindow: WelcomeWindowController?
@@ -21,10 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let pins = PinBoard()
     private lazy var editors = EditorLauncher(directory: dragDirectory)
     private var regionSelector: RegionSelector?
-    private var statusMenu: NSMenu?
     private lazy var recording = RecordingController(workDirectory: dragDirectory)
-    /// Updates the elapsed time in the menu bar while recording.
-    private var recordingTimer: Timer?
 
     /// Holds PNGs created when a preview is dragged out. Emptied at launch and quit.
     private let dragDirectory = FileManager.default.temporaryDirectory
@@ -36,10 +32,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         EditMenu.install()
         try? FileManager.default.removeItem(at: dragDirectory)
-        makeStatusMenu()
-        makePalette()
-        installHotKeyHandler()
-        registerHotKeys()
+        statusMenu = StatusMenu()
+        statusMenu.isVisible = !Settings.hideMenuBarIcon && !QuietMode.isOn
+        statusMenu.onCommand = { [weak self] command in self?.perform(command) }
+        statusMenu.onStopRecording = { [weak self] in self?.recording.stop() }
+        quickPanel = QuickPanel()
+        quickPanel.onAction = { [weak self] action in self?.perform(action) }
+        hotKeys = HotKeys()
+        hotKeys.onPress = { [weak self] action in self?.perform(action) }
+        hotKeys.register()
         configureRecorder()
         if !QuietMode.isOn { Updater.start() }
         QuietMode.start()
@@ -85,7 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if arguments.contains("--demo-menu") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.statusItem.button?.performClick(nil)
+                self?.statusMenu.open()
             }
         }
         // `--demo-record <seconds>` records the first display, or with `--screen <number>`
@@ -139,7 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // `--demo-unpin <seconds>` closes all pins after that long (for memory measurements).
         if let index = arguments.firstIndex(of: "--demo-unpin"), index + 1 < arguments.count,
            let seconds = TimeInterval(arguments[index + 1]) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in self?.closeAllPins() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in self?.pins.closeAll() }
         }
         // `--demo-scroll <x,y,w,h>` starts a scrolling capture of that region (global
         // AppKit coordinates, on whichever screen) without the selector.
@@ -182,50 +183,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         try? FileManager.default.removeItem(at: dragDirectory)
     }
 
-    // MARK: Menu and palette
-
-    private func makeStatusMenu() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.image = StatusIcon.image
-        statusItem.button?.imagePosition = .imageLeading
-        statusItem.button?.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
-        let menu = NSMenu()
-        shortcutItems[.area] = add(menu, L("menu.captureArea"), #selector(captureRegion))
-        shortcutItems[.window] = add(menu, L("menu.captureWindow"), #selector(captureWindow))
-        shortcutItems[.screen] = add(menu, L("menu.captureScreen"), #selector(captureScreen))
-        shortcutItems[.scrolling] = add(menu, L("menu.scrollingCapture"), #selector(captureScrolling))
-        shortcutItems[.text] = add(menu, L("menu.recognizeText"), #selector(captureText))
-        menu.addItem(.separator())
-        shortcutItems[.record] = add(menu, L("menu.recordScreen"), #selector(recordScreen))
-        menu.addItem(.separator())
-        shortcutItems[.pin] = add(menu, L("menu.pinClipboard"), #selector(pinClipboard))
-        add(menu, L("menu.annotateClipboard"), #selector(annotateClipboard))
-        add(menu, L("menu.closeAllPins"), #selector(closeAllPins))
-        menu.addItem(.separator())
-        shortcutItems[.panel] = add(menu, L("menu.quickPanel"), #selector(togglePalette))
-
-        add(menu, L("menu.settings"), #selector(showSettings)).keyEquivalent = ","
-        add(menu, L("menu.quit", AppInfo.name), #selector(quit)).keyEquivalent = "q"
-        statusItem.menu = menu
-        statusMenu = menu
-        statusItem.isVisible = !Settings.hideMenuBarIcon && !QuietMode.isOn
-        showShortcutsInMenu()
-    }
-
-    /// The menu shows each action's global shortcut, the one registered in `registerHotKeys()`.
-    private func showShortcutsInMenu() {
-        let table = Settings.shortcuts
-        for (action, item) in shortcutItems {
-            item.keyEquivalent = table[action]?.menuKey ?? ""
-            item.keyEquivalentModifierMask = table[action]?.menuModifiers ?? []
-        }
-    }
-
     // MARK: Settings
 
     /// Opens the settings window. While it is open the menu bar icon is shown even if
     /// the user chose to hide it, so that hiding it is never a dead end.
-    @objc private func showSettings() {
+    private func showSettings() {
         if settingsWindow == nil {
             let controller = SettingsWindowController()
             controller.onChange = { [weak self] in self?.applySettings() }
@@ -233,7 +195,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             controller.onShowWelcome = { [weak self] in self?.showWelcome() }
             // A shortcut typed into the settings must not also start its action.
             controller.onRecordingShortcut = { [weak self] recording in
-                if recording { self?.unregisterHotKeys() } else { self?.registerHotKeys() }
+                if recording { self?.hotKeys.unregister() } else { self?.hotKeys.register() }
             }
             controller.onClose = { [weak self] in
                 self?.settingsWindow = nil
@@ -241,7 +203,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             settingsWindow = controller
         }
-        statusItem.isVisible = !QuietMode.isOn
+        statusMenu.isVisible = !QuietMode.isOn
         settingsWindow?.show()
     }
 
@@ -257,7 +219,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.onChange = { [weak self] in self?.applySettings() }
         // A shortcut typed into the welcome window must not also start its action.
         controller.onRecordingShortcut = { [weak self] recording in
-            if recording { self?.unregisterHotKeys() } else { self?.registerHotKeys() }
+            if recording { self?.hotKeys.unregister() } else { self?.hotKeys.register() }
         }
         // A demo ends with its window, so that trying it leaves nothing behind.
         controller.onClose = { [weak self] in
@@ -270,132 +232,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Brings what is on screen in line with the settings.
     private func applySettings() {
-        statusItem.isVisible = (settingsWindow != nil || !Settings.hideMenuBarIcon) && !QuietMode.isOn
+        statusMenu.isVisible = (settingsWindow != nil || !Settings.hideMenuBarIcon) && !QuietMode.isOn
         previews.applySettings()
         pins.applySettings()
-        registerHotKeys()
-        showShortcutsInMenu()
+        hotKeys.register()
+        statusMenu.showShortcuts()
     }
 
-    @discardableResult
-    private func add(_ menu: NSMenu, _ title: String, _ action: Selector) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
-        item.target = self
-        menu.addItem(item)
-        return item
-    }
+    // MARK: Starting things
 
-    /// The All-in-One palette: a floating Liquid Glass bar with one button per action.
-    private func makePalette() {
-        let row = NSStackView(views: [
-            paletteButton(L("palette.area"), id: "palette.area", symbol: "rectangle.dashed", action: #selector(captureRegion)),
-            paletteButton(L("palette.window"), id: "palette.window", symbol: "macwindow", action: #selector(captureWindow)),
-            paletteButton(L("palette.screen"), id: "palette.screen", symbol: "display", action: #selector(captureScreen)),
-            paletteButton(L("palette.scrolling"), id: "palette.scrolling", symbol: "arrow.up.and.down", action: #selector(captureScrolling)),
-            paletteButton(L("palette.text"), id: "palette.text", symbol: "text.viewfinder", action: #selector(captureText)),
-            paletteButton(L("palette.record"), id: "palette.record", symbol: "record.circle", action: #selector(recordScreen)),
-            paletteButton(L("palette.pin"), id: "palette.pin", symbol: "pin", action: #selector(pinClipboard)),
-            paletteButton(L("palette.close"), id: "palette.close", symbol: "xmark", action: #selector(hidePalette))
-        ])
-        row.orientation = .horizontal
-        row.spacing = 4
-        row.edgeInsets = NSEdgeInsets(top: 8, left: 10, bottom: 8, right: 10)
-
-        let size = row.fittingSize
-        let panel = NSPanel(contentRect: NSRect(origin: .zero, size: size),
-                            styleMask: [.borderless, .nonactivatingPanel],
-                            backing: .buffered, defer: false)
-        panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.hidesOnDeactivate = false
-        panel.isMovableByWindowBackground = true
-        // Hidden at once, without the system's fade: a selection that starts right after
-        // would otherwise still find the panel under the pointer and offer it as a window.
-        panel.animationBehavior = .none
-        let glass = NSGlassEffectView(frame: NSRect(origin: .zero, size: size))
-        glass.cornerRadius = 24
-        glass.contentView = row
-        panel.contentView = glass
-        panel.center()
-        panel.setAccessibilityIdentifier("palette")
-        palette = panel
-    }
-
-    private func paletteButton(_ title: String, id: String, symbol: String, action: Selector) -> NSButton {
-        // NSButton's own image-above-title layout pins the image to the top edge, so the
-        // icon and label are laid out by a centred stack inside an empty button instead.
-        let button = PaletteButton(title: "", target: self, action: action)
-        button.isBordered = false
-        button.setAccessibilityLabel(title)
-        button.setAccessibilityIdentifier(id)
-        let icon = NSImageView()
-        icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 20, weight: .regular))
-        icon.contentTintColor = .labelColor
-        let label = NSTextField(labelWithString: title)
-        label.font = .systemFont(ofSize: 11)
-        label.textColor = .labelColor
-        let column = NSStackView(views: [icon, label])
-        column.orientation = .vertical
-        column.spacing = 5
-        column.translatesAutoresizingMaskIntoConstraints = false
-        button.addSubview(column)
-        NSLayoutConstraint.activate([
-            column.centerXAnchor.constraint(equalTo: button.centerXAnchor),
-            column.centerYAnchor.constraint(equalTo: button.centerYAnchor),
-            icon.heightAnchor.constraint(equalToConstant: 26),
-            button.widthAnchor.constraint(equalToConstant: 68),
-            button.heightAnchor.constraint(equalToConstant: 60)
-        ])
-        return button
-    }
-
-    /// Hears the global shortcuts registered in `registerHotKeys()`.
-    private func installHotKeyHandler() {
-        var kind = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
-                                 eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), { _, event, userData in
-            guard let userData = userData, let event = event else { return OSStatus(-9874) }
-            var pressed = EventHotKeyID()
-            GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
-                              nil, MemoryLayout<EventHotKeyID>.size, nil, &pressed)
-            let app = Unmanaged<AppDelegate>.fromOpaque(userData).takeUnretainedValue()
-            let which = pressed.id
-            DispatchQueue.main.async {
-                if let action = ShortcutAction.allCases.first(where: { $0.hotKeyID == which }) { app.perform(action) }
-            }
-            return noErr
-        }, 1, &kind, Unmanaged.passUnretained(self).toOpaque(), &hotKeyHandler)
-    }
-
-    /// Registers the shortcuts the settings hold, in place of those registered before.
-    /// One the system uses for itself registers without error and then never arrives;
-    /// the settings mark those (`Shortcut.isTaken`).
-    private func registerHotKeys() {
-        unregisterHotKeys()
-        // A test copy must not take the shortcuts from the copy in use.
-        guard !QuietMode.isOn else { return }
-        for (action, shortcut) in Settings.shortcuts {
-            var reference: EventHotKeyRef?
-            let identifier = EventHotKeyID(signature: OSType(0x43455054), id: action.hotKeyID) // 'CEPT'
-            let result = RegisterEventHotKey(shortcut.keyCode, shortcut.modifiers, identifier,
-                                             GetApplicationEventTarget(), 0, &reference)
-            if result != noErr {
-                NSLog("%@: shortcut %@ could not be registered (%d).", AppInfo.name, shortcut.display, result)
-            }
-            hotKeys.append(reference)
-        }
-    }
-
-    private func unregisterHotKeys() {
-        hotKeys.compactMap { $0 }.forEach { UnregisterEventHotKey($0) }
-        hotKeys.removeAll()
-    }
-
-    /// What a global shortcut starts: the same code as the menu and the Quick Panel.
+    /// What a global shortcut, a menu item or a Quick Panel button starts: the same code
+    /// whichever it was.
     private func perform(_ action: ShortcutAction) {
         switch action {
         case .area: captureRegion()
@@ -409,31 +256,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc func togglePalette() {
-        guard let panel = palette else { return }
-        if panel.isVisible { panel.orderOut(nil) }
-        else {
-            // In the middle of the screen the pointer is on, a little above the centre as `center()` does.
-            if let visible = NSScreen.underPointer?.visibleFrame {
-                panel.setFrameOrigin(NSPoint(x: visible.midX - panel.frame.width / 2,
-                                             y: visible.minY + (visible.height - panel.frame.height) * 2 / 3))
-            }
-            panel.orderFrontRegardless()
+    private func perform(_ command: StatusMenu.Command) {
+        switch command {
+        case .action(let action): perform(action)
+        case .annotateClipboard: annotateClipboard()
+        case .closeAllPins: pins.closeAll()
+        case .settings: showSettings()
+        case .quit: quit()
         }
     }
-    @objc private func hidePalette() { palette?.orderOut(nil) }
+
+    private func togglePalette() { quickPanel.toggle() }
+    private func hidePalette() { quickPanel.hide() }
 
     // MARK: Capture
 
-    @objc private func captureRegion() {
+    private func captureRegion() {
         hidePalette()
         screenshots.captureRegion()
     }
-    @objc private func captureWindow() {
+    private func captureWindow() {
         hidePalette()
         screenshots.captureWindow()
     }
-    @objc func captureScreen() {
+    private func captureScreen() {
         // While the recording selector is open the same shortcut means "the whole screen" there.
         if let selector = regionSelector {
             selector.selectFullScreen()
@@ -452,7 +298,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Scrolling capture: choose a region, then scroll it by hand while a helper process
     /// photographs and stitches it; Done turns the result into an ordinary screenshot.
-    @objc private func captureScrolling() {
+    private func captureScrolling() {
         hidePalette()
         guard scrollCapture == nil, regionSelector == nil, !recording.recorder.isBusy else { return }
         let selector = RegionSelector(purpose: .scrollingCapture) { [weak self] request in
@@ -481,7 +327,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Select a region (or, with Space, a window) exactly as for a screenshot; the text
     /// in it goes to the clipboard. The picture itself is not kept.
-    @objc private func captureText() {
+    private func captureText() {
         hidePalette()
         screenshots.selectArea { [weak self] file in self?.textReader.read(file, removingFile: true) }
     }
@@ -517,7 +363,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Shows the selector: drag a region (or keep the whole screen), set the options,
     /// then choose video or GIF. Nothing is recorded before that choice.
-    @objc private func recordScreen() {
+    private func recordScreen() {
         hidePalette()
         guard !recording.recorder.isBusy, regionSelector == nil, recording.countdown == nil else { return }
         let selector = RegionSelector { [weak self] request in
@@ -531,8 +377,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         regionSelector = selector
         selector.begin()
     }
-
-    @objc private func stopRecording() { recording.stop() }
 
     private func configureRecorder() {
         recording.onStateChange = { [weak self] in self?.updateRecordingIndicator() }
@@ -559,44 +403,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// While recording, the menu bar item shows the elapsed time and a click stops the
     /// recording instead of opening the menu.
     private func updateRecordingIndicator() {
-        recordingTimer?.invalidate()
-        recordingTimer = nil
-        guard let button = statusItem.button else { return }
         let recorder = recording.recorder
-        if recorder.isConverting {
-            // Nothing to click while the GIF is being written.
-            statusItem.menu = nil
-            button.action = nil
-            button.image = NSImage(systemSymbolName: "hourglass", accessibilityDescription: L("gif.creating"))
-            button.title = " GIF"
-            button.toolTip = L("gif.creating")
-        } else if recorder.isRecording {
-            statusItem.menu = nil
-            button.target = self
-            button.action = #selector(stopRecording)
-            // A red dot and the time, not a second stop button: the system already puts its
-            // own stop control in the menu bar. Clicking this one stops the recording too.
-            button.image = NSImage(systemSymbolName: "circle.fill",
-                                   accessibilityDescription: L("recording.inProgress"))?
-                .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 8, weight: .regular)
-                    .applying(.init(paletteColors: [.systemRed])))
-            button.toolTip = L("recording.clickToStop")
-            updateRecordingTime()
-            recordingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-                self?.updateRecordingTime()
-            }
-        } else {
-            button.action = nil
-            statusItem.menu = statusMenu
-            button.image = StatusIcon.image
-            button.toolTip = nil
-            button.title = ""
-        }
-    }
-
-    private func updateRecordingTime() {
-        let seconds = recording.recorder.startDate.map { Int(Date().timeIntervalSince($0)) } ?? 0
-        statusItem.button?.title = String(format: " %d:%02d", seconds / 60, seconds % 60)
+        statusMenu.show(recorder.isConverting ? .convertingToGIF
+                        : recorder.isRecording ? .recording(since: recorder.startDate) : .idle)
     }
 
     // MARK: Previews, pins and the editor
@@ -614,7 +423,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editors.onError = { [weak self] message in self?.showError(message) }
     }
 
-    @objc private func annotateClipboard() {
+    private func annotateClipboard() {
         guard let capture = CapturedImage.fromPasteboard(.general, storingIn: captureDirectory) else {
             showError(L("error.noClipboardImage.annotate"))
             return
@@ -622,7 +431,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editors.open(capture)
     }
 
-    @objc private func pinClipboard() {
+    private func pinClipboard() {
         hidePalette()
         guard let capture = CapturedImage.fromPasteboard(.general, storingIn: captureDirectory) else {
             showError(L("error.noClipboardImage.pin"))
@@ -630,8 +439,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         pins.add(capture)
     }
-
-    @objc private func closeAllPins() { pins.closeAll() }
 
     private func showError(_ message: String) {
         let alert = NSAlert()
@@ -641,5 +448,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.runModal()
     }
 
-    @objc private func quit() { NSApp.terminate(nil) }
+    private func quit() { NSApp.terminate(nil) }
 }
