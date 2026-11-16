@@ -7,8 +7,9 @@
 # Environment:
 #   ARCH           native (default) | universal
 #   OUT_DIR        where the bundle goes (default: build)
-#   SIGN_IDENTITY  codesign identity; default "Apple Development" when the keychain has
-#                  one, else ad-hoc ("-")
+#   SIGN_IDENTITY  codesign identity; default: what a release signs with (Developer ID,
+#                  else the release certificate in app.env), else "Apple Development",
+#                  else ad-hoc ("-")
 #   HARDENED=1     sign with the hardened runtime and entitlements (needed to notarize)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -82,8 +83,12 @@ case "$ARCH" in
 esac
 
 # A stable signature lets macOS keep the screen-recording permission across rebuilds;
-# an ad-hoc one ("-") is a new app to the system every time.
+# an ad-hoc one ("-") is a new app to the system every time. The system keeps one
+# permission per bundle id, so a development build signed unlike the installed release
+# takes the permission from it, and the release takes it back: both are signed alike.
 IDENTITY="${SIGN_IDENTITY:-}"
+[ -z "$IDENTITY" ] && IDENTITY="$(developer_id)"
+[ -z "$IDENTITY" ] && IDENTITY="$(release_certificate)"
 if [ -z "$IDENTITY" ]; then
   if /usr/bin/security find-identity -v -p codesigning | grep -q '"Apple Development'; then
     IDENTITY="Apple Development"
