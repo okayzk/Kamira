@@ -12,7 +12,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The settings window, only while it is open.
     private var settingsWindow: SettingsWindowController?
     private var welcomeWindow: WelcomeWindowController?
-    private var countdown: CountdownWindow?
     private var scrollCapture: ScrollCaptureSession?
     /// The message currently on screen, if any.
     private var toast: Toast?
@@ -22,12 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let pins = PinBoard()
     private lazy var editors = EditorLauncher(directory: dragDirectory)
     private var regionSelector: RegionSelector?
-    /// Outline around the region being recorded.
-    private var recordingFrame: RecordingFrameWindow?
     private var statusMenu: NSMenu?
-    /// Hides the desktop icons for as long as a recording runs.
-    private var recordingCover: DesktopCoverSession?
-    private let recorder = ScreenRecorder()
+    private lazy var recording = RecordingController(workDirectory: dragDirectory)
     /// Updates the elapsed time in the menu bar while recording.
     private var recordingTimer: Timer?
 
@@ -45,7 +40,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         makePalette()
         installHotKeyHandler()
         registerHotKeys()
-        recorder.workDirectory = dragDirectory
         configureRecorder()
         if !QuietMode.isOn { Updater.start() }
         QuietMode.start()
@@ -112,6 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             var options = RecordingOptions()
             options.gif = arguments.contains("--gif")
             options.microphone = arguments.contains("--mic")
+            let recorder = recording.recorder
             recorder.options = options
             // Outside the app's own temporary folder, which is emptied on quit, and never
             // in the maintainer's save folder.
@@ -119,12 +114,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             recorder.saveDirectory = FileManager.default.temporaryDirectory
             // Stops at the size set in Settings, as a real recording does.
             recorder.maxBytes = RecordingSize.bytes(gigabytes: Settings.maxRecordingGigabytes)
-            recorder.onFinished = { result in
+            recording.onFinished = { result in
                 print("demo-record:", result)
                 // Long enough for a message about a limit to be seen.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) { NSApp.terminate(nil) }
             }
-            if let region = region { showRecordingFrame(region) }
+            if let region = region { recording.showFrame(around: region) }
             // `--window <number>` records that window instead.
             if let at = arguments.firstIndex(of: "--window"), at + 1 < arguments.count,
                let number = CGWindowID(arguments[at + 1]) {
@@ -133,7 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 recorder.start(region: region, on: screen)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
-                self?.recorder.stop()
+                self?.recording.stop()
             }
         }
         // `--demo-select` shows the region selector with a sample selection.
@@ -459,7 +454,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// photographs and stitches it; Done turns the result into an ordinary screenshot.
     @objc private func captureScrolling() {
         hidePalette()
-        guard scrollCapture == nil, regionSelector == nil, !recorder.isBusy else { return }
+        guard scrollCapture == nil, regionSelector == nil, !recording.recorder.isBusy else { return }
         let selector = RegionSelector(purpose: .scrollingCapture) { [weak self] request in
             guard let self = self else { return }
             self.regionSelector = nil
@@ -524,54 +519,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// then choose video or GIF. Nothing is recorded before that choice.
     @objc private func recordScreen() {
         hidePalette()
-        guard !recorder.isBusy, regionSelector == nil, countdown == nil else { return }
+        guard !recording.recorder.isBusy, regionSelector == nil, recording.countdown == nil else { return }
         let selector = RegionSelector { [weak self] request in
             guard let self = self else { return }
             self.regionSelector = nil
             guard let request = request else { return }
-            self.recorder.options = request.options
-            self.recorder.saveDirectory = Settings.saveDirectory
-            self.recorder.maxBytes = RecordingSize.bytes(gigabytes: Settings.maxRecordingGigabytes)
-            let record = { [weak self] in
-                guard let self = self else { return }
-                if let window = request.windowID {
-                    self.recorder.start(windowID: window)
-                } else if request.isFullScreen {
-                    self.recorder.start(region: nil, on: request.screen)
-                } else {
-                    self.showRecordingFrame(request.area)
-                    self.recorder.start(region: request.area, on: request.screen)
-                }
-            }
-            let start = { [weak self] in
-                guard let self = self else { return }
-                self.countdown = nil
-                // A recording of one window has no desktop in it.
-                guard Settings.hideDesktopIcons, request.windowID == nil else { record(); return }
-                let cover = DesktopCoverSession()
-                self.recordingCover = cover
-                cover.start(then: record)
-            }
-            guard request.countdown else { start(); return }
-            let window = CountdownWindow(centredIn: request.area)
-            self.countdown = window
-            window.run(completion: start)
+            self.recording.start(area: request.area, screen: request.screen, windowID: request.windowID,
+                                 isFullScreen: request.isFullScreen, options: request.options,
+                                 countdown: request.countdown)
         }
         regionSelector = selector
         selector.begin()
     }
 
-    private func showRecordingFrame(_ rect: CGRect) {
-        recordingFrame?.close()
-        recordingFrame = RecordingFrameWindow(around: rect)
-        recordingFrame?.orderFrontRegardless()
-    }
-
-    @objc private func stopRecording() { recorder.stop() }
+    @objc private func stopRecording() { recording.stop() }
 
     private func configureRecorder() {
-        recorder.onStateChange = { [weak self] in self?.updateRecordingIndicator() }
-        recorder.onLimitReached = { [weak self] limit in
+        recording.onStateChange = { [weak self] in self?.updateRecordingIndicator() }
+        recording.onLimitReached = { [weak self] limit in
             switch limit {
             case .size:
                 self?.showToast(symbol: "stop.circle",
@@ -580,10 +545,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.showToast(symbol: "externaldrive.badge.exclamationmark", message: L("recording.stopped.disk"))
             }
         }
-        recorder.onFinished = { [weak self] result in
+        recording.onFinished = { [weak self] result in
             switch result {
             case .success(let url):
-                self?.previews.showRecording(url, pointSize: self?.recorder.lastPointSize ?? .zero)
+                self?.previews.showRecording(url, pointSize: self?.recording.recorder.lastPointSize ?? .zero)
             case .failure(let error):
                 QuietMode.activate()
                 self?.showError(L("error.recording", error.localizedDescription))
@@ -597,12 +562,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         recordingTimer?.invalidate()
         recordingTimer = nil
         guard let button = statusItem.button else { return }
-        if !recorder.isRecording {
-            recordingFrame?.close()
-            recordingFrame = nil
-            recordingCover?.stop()
-            recordingCover = nil
-        }
+        let recorder = recording.recorder
         if recorder.isConverting {
             // Nothing to click while the GIF is being written.
             statusItem.menu = nil
@@ -635,7 +595,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateRecordingTime() {
-        let seconds = recorder.startDate.map { Int(Date().timeIntervalSince($0)) } ?? 0
+        let seconds = recording.recorder.startDate.map { Int(Date().timeIntervalSince($0)) } ?? 0
         statusItem.button?.title = String(format: " %d:%02d", seconds / 60, seconds % 60)
     }
 
