@@ -77,6 +77,7 @@ xattr -dr com.apple.quarantine "/Applications/Kamira.app"
 - **Scrolling capture**: select a region and scroll manually to stitch a long image with a live preview. Overlapping content in consecutive frames is matched while fixed headers, sidebars, and similar elements are excluded from matching. Stitching has been verified on a test page with translucent Liquid Glass overlays.
 - **Text recognition (OCR)**: select an area to recognise and copy Chinese and English text entirely on your Mac, with no network connection needed. Text from multiple columns on the same line stays together, useful for tables and code.
 - **Recording**: record an area, a window, or the whole screen as video or GIF, with microphone and system audio available for video recordings.
+- **Accessibility**: VoiceOver reads the name of every control. The buttons that appear on preview cards and pins under the pointer are also available as actions, and messages are announced. Voice Control and automation tools find each control by a fixed identifier.
 - **Settings**: customise shortcuts, save locations, and preview behaviour. Launch at login or hide desktop icons during screenshots and recordings.
 - **Automatic updates**: at the bottom of **Settings → General**, choose Never, Check and Ask to Install, or Install Automatically. Automatic checks can run daily, weekly or monthly. The **Check for Updates…** button below is always available, including when automatic updates are set to Never.
 
