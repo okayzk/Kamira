@@ -56,6 +56,40 @@ func testShared() {
     try? Data("not an image".utf8).write(to: junk)
     check(CapturedImage(owningFile: junk) == nil, "a file that is not an image is rejected")
     check(!FileManager.default.fileExists(atPath: junk.path), "a rejected file is deleted too")
+
+    // A copied image file is the file's own picture, even when Finder puts the file's
+    // icon beside it, and the file itself is left where it was.
+    do {
+        let originals = storeDirectory.appendingPathComponent("originals", isDirectory: true)
+        try? FileManager.default.createDirectory(at: originals, withIntermediateDirectories: true)
+        func clipboard(file: URL, icon: Data? = nil) -> NSPasteboard {
+            let pasteboard = NSPasteboard.withUniqueName()
+            pasteboard.clearContents()
+            pasteboard.setString(file.absoluteString, forType: .fileURL)
+            if let icon = icon { pasteboard.setData(icon, forType: .tiff) }
+            return pasteboard
+        }
+        let pngFile = originals.appendingPathComponent("Photo.png")
+        try? makeImageData(width: 60, height: 40, dpi: 144, type: .png).write(to: pngFile)
+        let icon = makeImageData(width: 32, height: 32, dpi: 72, type: .tiff)
+        let pasted = CapturedImage.fromPasteboard(clipboard(file: pngFile, icon: icon), storingIn: storeDirectory)
+        check(pasted?.pixelSize == CGSize(width: 60, height: 40), "an image file is read, not its icon, got \(String(describing: pasted?.pixelSize))")
+        check(pasted?.pointSize == CGSize(width: 30, height: 20), "an image file keeps its resolution")
+        check(pasted?.fileURL != nil && pasted?.fileURL != pngFile, "a copy of the file backs the capture")
+        check(FileManager.default.fileExists(atPath: pngFile.path), "the copied file stays where it was")
+
+        let jpegFile = originals.appendingPathComponent("Photo.jpg")
+        try? makeImageData(width: 50, height: 20, dpi: 72, type: .jpeg).write(to: jpegFile)
+        let jpeg = CapturedImage.fromPasteboard(clipboard(file: jpegFile), storingIn: storeDirectory)
+        check(jpeg?.pixelSize == CGSize(width: 50, height: 20), "a JPEG file is read too")
+        check(jpeg?.pngData().map(isPNG) == true && jpeg?.fileURL?.pathExtension == "png", "a JPEG file is kept as PNG")
+
+        let textFile = originals.appendingPathComponent("Notes.txt")
+        try? Data("not an image".utf8).write(to: textFile)
+        check(CapturedImage.fromPasteboard(clipboard(file: textFile), storingIn: storeDirectory) == nil,
+              "a file that is not an image gives nothing")
+        check(FileManager.default.fileExists(atPath: textFile.path), "a file that is not an image is left alone")
+    }
     try? FileManager.default.removeItem(at: storeDirectory)
 
     // File names from the user's pattern, and a free place for them in the folder.

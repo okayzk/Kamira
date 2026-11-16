@@ -110,7 +110,17 @@ final class CapturedImage {
     }
 
     /// The image currently on the pasteboard, if any, stored in `directory`.
+    /// A copied image file comes first: Finder puts the file's icon beside it, and the
+    /// file's bytes are copied as they are rather than decoded into a bitmap.
     static func fromPasteboard(_ pasteboard: NSPasteboard, storingIn directory: URL) -> CapturedImage? {
+        let imageFiles: [NSPasteboard.ReadingOptionKey: Any] = [
+            .urlReadingFileURLsOnly: true,
+            .urlReadingContentsConformToTypes: [UTType.image.identifier]
+        ]
+        if let file = (pasteboard.readObjects(forClasses: [NSURL.self], options: imageFiles) as? [URL])?.first {
+            guard let data = try? Data(contentsOf: file, options: .alwaysMapped) else { return nil }
+            return stored(data, in: directory)
+        }
         guard let data = pasteboard.data(forType: .png) ?? pasteboard.data(forType: .tiff)
                 ?? NSImage(pasteboard: pasteboard)?.tiffRepresentation else { return nil }
         return stored(data, in: directory)
