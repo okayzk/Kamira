@@ -48,118 +48,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         connectPreviewsPinsAndEditors()
         configureTextReader()
         textReader.warmUp()
-        // The first start only. `--demo-welcome` shows it again; `--demo-welcome-pending`
-        // as on a Mac where nothing is allowed or switched off yet.
-        let demo = CommandLine.arguments.contains { $0.hasPrefix("--demo") }
-        if (!Settings.welcomed && !demo) || CommandLine.arguments.contains("--demo-welcome") { showWelcome() }
-        if CommandLine.arguments.contains("--demo-welcome-pending") { showWelcome(pending: true) }
-
-        // Development aid: `--demo-preview`, `--demo-pin` or `--demo-edit`, each followed by
-        // an image file, shows that piece of UI without taking a capture. Flags may repeat.
-        let arguments = CommandLine.arguments
-        if arguments.contains("--demo-palette") { togglePalette() }
-        if arguments.contains("--demo-settings") { showSettings() }
-        // `--demo-shortcuts` shows the shortcuts pane; `--demo-shortcut-guide` also opens
-        // the note about the system's screenshot shortcuts.
-        // `--demo-settings-screenshots`, `-recording`, `--demo-about`: the other panes.
-        for (flag, pane) in [("--demo-settings-screenshots", SettingsWindowController.Pane.screenshots),
-                             ("--demo-settings-recording", .recording), ("--demo-about", .about)]
-        where arguments.contains(flag) {
-            showSettings()
-            settingsWindow?.show(pane)
-        }
-        if arguments.contains("--demo-shortcuts") || arguments.contains("--demo-shortcut-guide") {
-            showSettings()
-            settingsWindow?.show(.shortcuts)
-            if arguments.contains("--demo-shortcut-guide") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.settingsWindow?.showGuide() }
-            }
-        }
-        // `--demo-login-item` adds the app to the login items, takes it out again, prints
-        // what the system answered each time, and quits.
-        if arguments.contains("--demo-login-item") {
-            for enabled in [true, false] {
-                do { try Settings.setOpenAtLogin(enabled) } catch { print("demo-login-item: error:", error) }
-                print("demo-login-item: asked for \(enabled), system says \(Settings.openAtLogin)")
-            }
-            exit(0)
-        }
-        if arguments.contains("--demo-menu") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.statusMenu.open()
-            }
-        }
-        // `--demo-record <seconds>` records the first display, or with `--screen <number>`
-        // another one, or with `--region x,y,w,h` (global AppKit coordinates) that part of
-        // the screen it lies on; prints the file and quits. `--gif` and `--mic` change the options.
-        if let index = arguments.firstIndex(of: "--demo-record"), index + 1 < arguments.count,
-           let seconds = TimeInterval(arguments[index + 1]), var screen = NSScreen.screens.first {
-            var region: CGRect?
-            if let at = arguments.firstIndex(of: "--region"), at + 1 < arguments.count {
-                let n = arguments[at + 1].split(separator: ",").compactMap { Double($0) }
-                if n.count == 4 { region = CGRect(x: n[0], y: n[1], width: n[2], height: n[3]) }
-            }
-            if let region = region, let home = NSScreen.containing(region) { screen = home }
-            if let at = arguments.firstIndex(of: "--screen"), at + 1 < arguments.count,
-               let number = Int(arguments[at + 1]), NSScreen.screens.indices.contains(number) {
-                screen = NSScreen.screens[number]
-            }
-            var options = RecordingOptions()
-            options.gif = arguments.contains("--gif")
-            options.microphone = arguments.contains("--mic")
-            recording.onFinished = { result in
-                print("demo-record:", result)
-                // Long enough for a message about a limit to be seen.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { NSApp.terminate(nil) }
-            }
-            // `--window <number>` records that window instead.
-            var window: CGWindowID?
-            if let at = arguments.firstIndex(of: "--window"), at + 1 < arguments.count {
-                window = CGWindowID(arguments[at + 1])
-            }
-            // Outside the app's own temporary folder, which is emptied on quit, and never
-            // in the maintainer's save folder.
-            recording.startDemo(region: region, on: screen, windowID: window, options: options,
-                                directory: FileManager.default.temporaryDirectory)
-            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
-                self?.recording.stop()
-            }
-        }
-        // `--demo-select` shows the region selector with a sample selection.
-        if arguments.contains("--demo-select") {
-            recordScreen()
-            regionSelector?.showSample(CGRect(x: 300, y: 300, width: 640, height: 400))
-        }
-        // `--demo-unpin <seconds>` closes all pins after that long (for memory measurements).
-        if let index = arguments.firstIndex(of: "--demo-unpin"), index + 1 < arguments.count,
-           let seconds = TimeInterval(arguments[index + 1]) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in self?.pins.closeAll() }
-        }
-        // `--demo-scroll <x,y,w,h>` starts a scrolling capture of that region (global
-        // AppKit coordinates, on whichever screen) without the selector.
-        if let index = arguments.firstIndex(of: "--demo-scroll"), index + 1 < arguments.count {
-            let n = arguments[index + 1].split(separator: ",").compactMap { Double($0) }
-            if n.count == 4 {
-                let area = CGRect(x: n[0], y: n[1], width: n[2], height: n[3])
-                if let screen = NSScreen.containing(area) { startScrollCapture(area: area, screen: screen) }
-            }
-        }
-        // `--demo-ocr <image>` recognises the text in an image file, as after a selection.
-        if let index = arguments.firstIndex(of: "--demo-ocr"), index + 1 < arguments.count {
-            textReader.read(URL(fileURLWithPath: arguments[index + 1]), removingFile: false)
-        }
-        // `--demo-recording <file>` shows the floating preview for an existing recording.
-        if let index = arguments.firstIndex(of: "--demo-recording"), index + 1 < arguments.count {
-            previews.showRecording(URL(fileURLWithPath: arguments[index + 1]), pointSize: CGSize(width: 800, height: 500))
-        }
-        for (index, flag) in arguments.enumerated().dropLast() where flag.hasPrefix("--demo-") {
-            guard let data = try? Data(contentsOf: URL(fileURLWithPath: arguments[index + 1]), options: .alwaysMapped),
-                  let capture = CapturedImage.stored(data, in: captureDirectory) else { continue }
-            if flag == "--demo-preview" { previews.show(capture) }
-            if flag == "--demo-pin" { pins.add(capture) }
-            if flag == "--demo-edit" { editors.open(capture) }
-            if ["--demo-draw", "--demo-copy", "--demo-move", "--demo-zoom"].contains(flag) { editors.open(capture, demo: flag) }
-        }
+        // The welcome window on the first start, but never unasked in a demo run.
+        if !Settings.welcomed && !Demo.isAny(CommandLine.arguments) { showWelcome() }
+        Demo.parse(CommandLine.arguments).forEach(run)
     }
 
     /// The app was opened again while running (from Finder, Spotlight, the Dock…): the
@@ -441,4 +332,75 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func quit() { NSApp.terminate(nil) }
+
+    // MARK: Demo modes
+
+    /// Does what a `--demo-…` argument asks for; reading the arguments is `Demo.parse`.
+    private func run(_ demo: Demo) {
+        switch demo {
+        case .welcome(let pending):
+            showWelcome(pending: pending)
+        case .palette:
+            togglePalette()
+        case .settings(let pane):
+            showSettings()
+            switch pane {
+            case .screenshots?: settingsWindow?.show(.screenshots)
+            case .recording?: settingsWindow?.show(.recording)
+            case .shortcuts?: settingsWindow?.show(.shortcuts)
+            case .about?: settingsWindow?.show(.about)
+            case nil: break
+            }
+        case .shortcutGuide:
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.settingsWindow?.showGuide() }
+        case .loginItem:
+            for enabled in [true, false] {
+                do { try Settings.setOpenAtLogin(enabled) } catch { print("demo-login-item: error:", error) }
+                print("demo-login-item: asked for \(enabled), system says \(Settings.openAtLogin)")
+            }
+            exit(0)
+        case .menu:
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.statusMenu.open() }
+        case let .record(seconds, region, number, window, gif, microphone):
+            guard var screen = NSScreen.screens.first else { return }
+            if let region = region, let home = NSScreen.containing(region) { screen = home }
+            if let number = number, NSScreen.screens.indices.contains(number) { screen = NSScreen.screens[number] }
+            var options = RecordingOptions()
+            options.gif = gif
+            options.microphone = microphone
+            recording.onFinished = { result in
+                print("demo-record:", result)
+                // Long enough for a message about a limit to be seen.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { NSApp.terminate(nil) }
+            }
+            // Outside the app's own temporary folder, which is emptied on quit, and never
+            // in the maintainer's save folder.
+            recording.startDemo(region: region, on: screen, windowID: window, options: options,
+                                directory: FileManager.default.temporaryDirectory)
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in self?.recording.stop() }
+        case .select:
+            recordScreen()
+            regionSelector?.showSample(CGRect(x: 300, y: 300, width: 640, height: 400))
+        case .unpin(let seconds):
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in self?.pins.closeAll() }
+        case .scroll(let area):
+            if let screen = NSScreen.containing(area) { startScrollCapture(area: area, screen: screen) }
+        case .recognizeText(let file):
+            textReader.read(file, removingFile: false)
+        case .recording(let file):
+            previews.showRecording(file, pointSize: CGSize(width: 800, height: 500))
+        case .preview(let file):
+            if let capture = demoCapture(file) { previews.show(capture) }
+        case .pin(let file):
+            if let capture = demoCapture(file) { pins.add(capture) }
+        case let .edit(file, mode):
+            if let capture = demoCapture(file) { editors.open(capture, demo: mode) }
+        }
+    }
+
+    /// A picture file as a screenshot, for the demos that show one.
+    private func demoCapture(_ file: URL) -> CapturedImage? {
+        guard let data = try? Data(contentsOf: file, options: .alwaysMapped) else { return nil }
+        return CapturedImage.stored(data, in: captureDirectory)
+    }
 }
