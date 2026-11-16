@@ -2,27 +2,6 @@ import AppKit
 import AVFoundation
 import ScreenCaptureKit
 
-struct RecordingOptions {
-    /// Record what the Mac is playing.
-    var systemAudio = true
-    /// Record the default microphone, as a second audio track.
-    var microphone = false
-    /// Produce an animated GIF (no sound) instead of an .mp4.
-    var gif = false
-}
-
-struct RecorderError: LocalizedError {
-    let errorDescription: String?
-}
-
-/// Why a recording ended without the user stopping it.
-enum RecordingLimit {
-    /// The file reached the size set in Settings.
-    case size
-    /// The disk holding the file had less than `ScreenRecorder.minimumFreeSpace` left.
-    case disk
-}
-
 /// Records a display, a window or a screen region straight to a file. ScreenCaptureKit
 /// captures and encodes outside this process, so no frames pass through the app; a GIF
 /// is converted from the finished video by a short-lived helper process.

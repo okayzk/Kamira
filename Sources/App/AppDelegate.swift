@@ -1,13 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// Button whose icon and label subviews never take the click away from the button itself.
-private final class PaletteButton: NSButton {
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        super.hitTest(point) == nil ? nil : self
-    }
-}
-
 /// Menu bar item, global shortcut, All-in-One palette, and the capture → preview → pin flow.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let maxPreviews = 5
