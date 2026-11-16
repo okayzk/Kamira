@@ -3,6 +3,12 @@ import AppKit
 // A lightweight companion to macOS's own Screenshot utility.
 // No third-party dependencies, no capture history, and no polling while idle.
 
+// Helper modes end with the app that started them (see `ParentWatch`). Two are left to
+// finish instead, as they hold the user's work: an annotation editor, and a recording
+// being made into a GIF.
+let stoppedWithApp = ["--ocr", "--ocr-warm-up", "--window-shadow", "--scroll-capture", "--desktop-cover", "--quicklook"]
+if CommandLine.arguments.contains(where: stoppedWithApp.contains) { ParentWatch.start() }
+
 // Helper mode: convert a finished recording to a GIF and exit, without any UI.
 if let index = CommandLine.arguments.firstIndex(of: "--convert-gif"),
    index + 2 < CommandLine.arguments.count {

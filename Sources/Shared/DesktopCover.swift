@@ -4,8 +4,8 @@ import ImageIO
 /// Hides the desktop icons while a capture is taken, by laying a picture of the
 /// wallpaper over them. Runs as a helper process (`--desktop-cover`), because that
 /// picture is a screen-sized bitmap: it prints "ready" once every screen is covered and
-/// quits when its standard input closes, so it can never outlive the app and leave the
-/// icons hidden.
+/// stays until it is stopped, or until the app is gone (`ParentWatch`), so it can never
+/// outlive the app and leave the icons hidden.
 ///
 /// The wallpaper is a window of its own beneath the icons; the system's `screencapture`
 /// photographs that one window, which gives the wallpaper exactly as it is right now
@@ -66,9 +66,6 @@ enum DesktopCover {
             covers.append(window)
         }
         FileHandle.standardOutput.write(Data("ready\n".utf8))
-        FileHandle.standardInput.readabilityHandler = { handle in
-            if handle.availableData.isEmpty { exit(0) }
-        }
         withExtendedLifetime(covers) { app.run() }
         exit(0)
     }

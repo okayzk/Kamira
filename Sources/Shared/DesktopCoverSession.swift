@@ -3,8 +3,6 @@ import AppKit
 /// The app's side of `DesktopCover`: starts the helper and takes it away again.
 final class DesktopCoverSession {
     private let helper = Process()
-    /// Held open for as long as the cover should stay; see `DesktopCover`.
-    private let input = Pipe()
     private var waiting: (() -> Void)?
 
     /// Covers the icons, then calls `ready` on the main thread. If the helper cannot
@@ -15,7 +13,6 @@ final class DesktopCoverSession {
         let output = Pipe()
         helper.executableURL = Bundle.main.executableURL
         helper.arguments = ["--desktop-cover"]
-        helper.standardInput = input
         helper.standardOutput = output
         output.fileHandleForReading.readabilityHandler = { [weak self] handle in
             _ = handle.availableData

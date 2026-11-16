@@ -41,4 +41,41 @@ func testApp() {
               "the editor, plain and drawing")
         check(Demo.parse(["K", "--demo-preview"]).isEmpty, "a picture demo needs its file")
     }
+
+    // A helper process ends with the app that started it. The app here is a shell that
+    // starts this test program as a probe and leaves, at once or after a while.
+    do {
+        func probe(parentLasting seconds: Double) -> pid_t? {
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent("kamira-probe-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: file) }
+            let shell = Process()
+            shell.executableURL = URL(fileURLWithPath: "/bin/sh")
+            shell.arguments = ["-c", "\"$0\" --parent-watch-probe >/dev/null 2>&1 & echo $! > \"$1\"; sleep \(seconds)",
+                               CommandLine.arguments[0], file.path]
+            guard (try? shell.run()) != nil else { return nil }
+            for _ in 0..<40 {
+                if let text = try? String(contentsOf: file, encoding: .utf8),
+                   let pid = pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines)) { return pid }
+                Thread.sleep(forTimeInterval: 0.05)
+            }
+            return nil
+        }
+        func ends(_ pid: pid_t, within seconds: Double) -> Bool {
+            let deadline = Date().addingTimeInterval(seconds)
+            while Date() < deadline {
+                if kill(pid, 0) != 0 { return true }
+                Thread.sleep(forTimeInterval: 0.05)
+            }
+            kill(pid, SIGKILL)
+            return false
+        }
+        if let early = probe(parentLasting: 0) {
+            check(ends(early, within: 2), "a helper whose app is already gone ends")
+        } else { check(false, "the probe did not start") }
+        if let late = probe(parentLasting: 1) {
+            Thread.sleep(forTimeInterval: 0.4)
+            check(kill(late, 0) == 0, "a helper keeps running while its app does")
+            check(ends(late, within: 3), "a helper ends when its app goes")
+        } else { check(false, "the probe did not start") }
+    }
 }
