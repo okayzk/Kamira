@@ -23,8 +23,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotKeys: [EventHotKeyRef?] = []
     /// The menu items that show an action's global shortcut.
     private var shortcutItems: [ShortcutAction: NSMenuItem] = [:]
-    /// The system screenshot tool while it is waiting for the user to select something.
-    private var interactiveCapture: Process?
     private var hotKeyHandler: EventHandlerRef?
     /// The settings window, only while it is open.
     private var settingsWindow: SettingsWindowController?
@@ -34,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The message currently on screen, if any.
     private var toast: Toast?
     private let textReader = TextReader()
+    private lazy var screenshots = ScreenshotTaker(directory: captureDirectory)
     private var regionSelector: RegionSelector?
     /// Outline around the region being recorded.
     private var recordingFrame: RecordingFrameWindow?
@@ -62,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configureRecorder()
         if !QuietMode.isOn { Updater.start() }
         QuietMode.start()
+        configureScreenshots()
         configureTextReader()
         textReader.warmUp()
         // The first start only. `--demo-welcome` shows it again; `--demo-welcome-pending`
@@ -452,75 +452,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: Capture
 
-    // Both interactive modes are the system's own: Space switches between dragging a
-    // region and picking a window, in either direction.
-    @objc private func captureRegion() { captureInteractively(["-i", "-x"]) }
-    @objc private func captureWindow() { captureInteractively(["-i", "-W", "-x"]) }
-
-    /// A region or window screenshot with the window shadow the user chose. The system
-    /// tool can only draw its own wide shadow or none (`-o`); the sizes in between are
-    /// added afterwards by a helper process, which leaves anything but a window capture alone.
-    private func captureInteractively(_ arguments: [String]) {
-        let level = Settings.windowShadowLevel
-        capture(arguments + (level == WindowShadowLevel.system ? [] : ["-o"]), interactive: true) { [weak self] file in
-            guard level > 0, level < WindowShadowLevel.system, FileManager.default.fileExists(atPath: file.path) else {
-                self?.captureFinished(file)
-                return
-            }
-            let helper = Process()
-            helper.executableURL = Bundle.main.executableURL
-            helper.arguments = ["--window-shadow", file.path, String(level)]
-            helper.terminationHandler = { _ in DispatchQueue.main.async { self?.captureFinished(file) } }
-            // Without the helper the capture is still good, only without a shadow.
-            do { try helper.run() } catch { self?.captureFinished(file) }
-        }
+    @objc private func captureRegion() {
+        hidePalette()
+        screenshots.captureRegion()
     }
-    /// Captures the whole screen at once. If a region or window selection is in
-    /// progress, this replaces it, so the shortcut also works from inside a selection.
+    @objc private func captureWindow() {
+        hidePalette()
+        screenshots.captureWindow()
+    }
     @objc func captureScreen() {
         // While the recording selector is open the same shortcut means "the whole screen" there.
         if let selector = regionSelector {
             selector.selectFullScreen()
             return
         }
-        interactiveCapture?.terminate()
-        interactiveCapture = nil
-        capture(["-x"], interactive: false)
+        hidePalette()
+        screenshots.captureScreen()
     }
 
-    /// Runs the system screenshot tool. It writes the picture to a temporary file, which
-    /// is handed to `completion`; by default it becomes a screenshot (mapped, never read
-    /// into allocated memory, and copied to the clipboard). No file means it was cancelled.
-    private func capture(_ arguments: [String], interactive: Bool, hidingDesktopIcons: Bool = true,
-                         completion: ((URL) -> Void)? = nil) {
-        hidePalette()
-        // One selection at a time.
-        if interactive, interactiveCapture?.isRunning == true { return }
-        let file = captureDirectory.appendingPathComponent("capture-\(UUID().uuidString).png")
-        try? FileManager.default.createDirectory(at: captureDirectory, withIntermediateDirectories: true)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-        process.arguments = arguments + ["-t", "png", file.path]
-        // With that setting on, the icons are covered first and shown again afterwards.
-        let cover = hidingDesktopIcons && Settings.hideDesktopIcons ? DesktopCoverSession() : nil
-        process.terminationHandler = { [weak self] finished in
-            DispatchQueue.main.async {
-                cover?.stop()
-                if self?.interactiveCapture === finished { self?.interactiveCapture = nil }
-                if let completion = completion { completion(file) } else { self?.captureFinished(file) }
-            }
+    private func configureScreenshots() {
+        screenshots.onCaptured = { [weak self] capture in
+            if Settings.previewEnabled { self?.showPreview(capture) }
         }
-        if interactive { interactiveCapture = process }
-        let run = { [weak self] in
-            do { try process.run() } catch {
-                cover?.stop()
-                self?.showError(L("error.screenshotTool", error.localizedDescription))
-            }
-        }
-        // Give AppKit one event-loop turn to remove the palette before capture begins.
-        DispatchQueue.main.async {
-            if let cover = cover { cover.start(then: run) } else { run() }
-        }
+        screenshots.onError = { [weak self] message in self?.showError(message) }
     }
 
     /// Scrolling capture: choose a region, then scroll it by hand while a helper process
@@ -544,32 +498,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let session = ScrollCaptureSession(area: area, screen: screen, output: file)
         session.onFinished = { [weak self] result in
             self?.scrollCapture = nil
-            if let result = result { self?.captureFinished(result) }
+            if let result = result { self?.screenshots.finish(result) }
         }
         scrollCapture = session
         session.start()
-    }
-
-    private func captureFinished(_ file: URL) {
-        // No file means the user cancelled the selection.
-        guard FileManager.default.fileExists(atPath: file.path),
-              let capture = CapturedImage(owningFile: file) else { return }
-        if Settings.copyAfterCapture { capture.copyToPasteboard() }
-        if Settings.saveAfterCapture { save(capture) }
-        if Settings.previewEnabled { showPreview(capture) }
-    }
-
-    /// Writes a screenshot into the save folder under its own name, without asking.
-    private func save(_ capture: CapturedImage) {
-        let directory = Settings.saveDirectory
-        let name = (capture.suggestedFileName as NSString).deletingPathExtension
-        do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            guard let data = capture.pngData() else { throw CocoaError(.fileWriteUnknown) }
-            try data.write(to: FileNaming.available(name, extension: "png", in: directory), options: .atomic)
-        } catch {
-            showError(L("error.save", error.localizedDescription))
-        }
     }
 
     // MARK: Text recognition
@@ -577,10 +509,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Select a region (or, with Space, a window) exactly as for a screenshot; the text
     /// in it goes to the clipboard. The picture itself is not kept.
     @objc private func captureText() {
-        capture(["-i", "-x"], interactive: true, hidingDesktopIcons: false) { [weak self] file in
-            guard FileManager.default.fileExists(atPath: file.path) else { return }
-            self?.textReader.read(file, removingFile: true)
-        }
+        hidePalette()
+        screenshots.selectArea { [weak self] file in self?.textReader.read(file, removingFile: true) }
     }
 
     private func configureTextReader() {
