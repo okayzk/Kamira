@@ -14,11 +14,13 @@ run: build
 test:
 	@./scripts/test.sh
 
-# Everything that must pass before a commit: tests, the folders' boundaries, both text tables, the app's name
-# against app.env, release notes, the incident ledger, and what the change's paths ask
-# for on top.
+# Everything that must pass before a commit: tests, the boundaries of the feature folders
+# the change touches, both text tables, the app's name against app.env, release notes,
+# the incident ledger, and what the change's paths ask for on top.
+# JOBS: how many folders the boundary check compiles at once.
+JOBS ?= 4
 check: test
-	@./scripts/check_structure.sh
+	@./scripts/check_structure.sh --jobs $(JOBS)
 	@python3 scripts/check_localization.py
 	@python3 scripts/check_identity.py
 	@./scripts/check_release_notes.sh

@@ -134,6 +134,8 @@ printf '\nPreflight passed for %s.\n' "$TAG"
 if [ "$MODE" = full ]; then
   stage checks
   make check
+  # make check looks only at the folders the last commit touched; a release looks at all.
+  ./scripts/check_structure.sh --all
   stage build
   if dist_is_releasable; then
     echo "Using dist/ as packaged from $(git rev-parse --short HEAD) on a clean tree: the package the hand checks saw."
