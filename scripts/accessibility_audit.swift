@@ -42,7 +42,9 @@ writeSample(.png, to: image)
 writeSample(.gif, to: gif)
 
 /// Each surface of the app, opened by its demo mode. `--demo-edit` opens the editor in a
-/// helper process, which is read as well.
+/// helper process, which is read as well. A scrolling capture's helper shows only the live
+/// preview, a picture with nothing to act on, so its windows are left out.
+let unreadHelpers: Set<String> = ["Scrolling capture"]
 let scenarios: [(name: String, flags: [String])] = [
     ("Quick Panel", ["--demo-palette"]),
     ("Screenshot preview", ["--demo-preview", image.path]),
@@ -54,7 +56,8 @@ let scenarios: [(name: String, flags: [String])] = [
     ("Settings: Recording", ["--demo-settings-recording"]),
     ("Settings: Shortcuts", ["--demo-shortcuts"]),
     ("Settings: About", ["--demo-about"]),
-    ("Welcome", ["--demo-welcome"])
+    ("Welcome", ["--demo-welcome"]),
+    ("Scrolling capture", ["--demo-scroll", "200,200,600,400"])
 ] + (includeSelector ? [("Recording selector", ["--demo-select"])] : [])
 
 // MARK: Reading the tree
@@ -172,9 +175,12 @@ for scenario in scenarios {
     Thread.sleep(forTimeInterval: 0.5)
     var windows = auditWindows(of: app.processIdentifier, scenario: scenario.name)
     let helpers = childProcesses(of: app.processIdentifier)
-    for helper in helpers { windows += auditWindows(of: helper, scenario: scenario.name) }
+    for helper in helpers where !unreadHelpers.contains(scenario.name) {
+        windows += auditWindows(of: helper, scenario: scenario.name)
+    }
     if windows == 0 { problems.append("\(scenario.name): no window to read") }
-    for helper in helpers { kill(helper, SIGTERM) }
+    // Read again: a helper may have started while the windows were read.
+    for helper in childProcesses(of: app.processIdentifier) { kill(helper, SIGTERM) }
     app.terminate()
     app.waitUntilExit()
 }

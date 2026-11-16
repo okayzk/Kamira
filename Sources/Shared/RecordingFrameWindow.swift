@@ -17,6 +17,8 @@ final class RecordingFrameWindow: NSPanel {
         sharingType = .none
         isReleasedWhenClosed = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // Only a line to look at: assistive apps would find an empty window here.
+        setAccessibilityElement(false)
         let view = NSView(frame: NSRect(origin: .zero, size: frame.size))
         view.wantsLayer = true
         view.layer?.borderWidth = Self.thickness

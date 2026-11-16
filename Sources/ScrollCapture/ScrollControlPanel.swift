@@ -33,6 +33,10 @@ final class ScrollControlPanel: NSPanel {
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let cancel = button("xmark", L("action.cancel"), #selector(cancelClicked))
         let done = button("checkmark", L("action.done"), #selector(doneClicked))
+        setAccessibilityIdentifier("scroll")
+        label.setAccessibilityIdentifier("scroll.progress")
+        cancel.setAccessibilityIdentifier("scroll.cancel")
+        done.setAccessibilityIdentifier("scroll.done")
         done.contentTintColor = .controlAccentColor
         let row = NSStackView(views: [label, cancel, done])
         row.orientation = .horizontal
