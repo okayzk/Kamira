@@ -2,6 +2,7 @@
 
 "tool.select" = "Select";
 "tool.arrow" = "Arrow";
+"tool.line" = "Line";
 "tool.rectangle" = "Rectangle";
 "tool.ellipse" = "Ellipse";
 "tool.pen" = "Pen";

@@ -55,6 +55,10 @@ enum AnnotationRenderer {
             context.addLine(to: CGPoint(x: base.x + unit.y * half, y: base.y - unit.x * half))
             context.closePath()
             context.fillPath()
+        case .line:
+            context.move(to: first)
+            context.addLine(to: last)
+            context.strokePath()
         case .rectangle:
             context.stroke(annotation.rect)
         case .ellipse:

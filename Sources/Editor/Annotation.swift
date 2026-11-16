@@ -26,10 +26,14 @@ extension Annotation {
     /// Whether the tool is defined by two points that can each be dragged afterwards.
     private var hasTwoPoints: Bool {
         switch tool {
-        case .arrow, .rectangle, .ellipse, .highlight, .mosaic: return points.count == 2
+        case .arrow, .line, .rectangle, .ellipse, .highlight, .mosaic: return points.count == 2
         case .pen, .text, .counter: return false
         }
     }
+
+    /// Whether the annotation is a segment between its two points, reshaped by its ends
+    /// rather than by the corners of a box.
+    var isSegment: Bool { tool == .arrow || tool == .line }
 
     /// The smallest rectangle around everything the annotation draws, ignoring line width.
     var bounds: CGRect {
@@ -46,7 +50,7 @@ extension Annotation {
             return CGRect(x: first.x - radius, y: first.y - radius, width: radius * 2, height: radius * 2)
         case .pen:
             return points.reduce(CGRect.null) { $0.union(CGRect(origin: $1, size: .zero)) }
-        case .arrow, .rectangle, .ellipse, .highlight, .mosaic:
+        case .arrow, .line, .rectangle, .ellipse, .highlight, .mosaic:
             return rect
         }
     }
@@ -72,7 +76,7 @@ extension Annotation {
         // Empty when the shape is too small to have a middle.
         let inner = rect.width > reach * 2 && rect.height > reach * 2 ? rect.insetBy(dx: reach, dy: reach) : .null
         switch tool {
-        case .arrow:
+        case .arrow, .line:
             guard let first = points.first, let last = points.last else { return false }
             return nearLine(first, last)
         case .pen:
@@ -104,11 +108,11 @@ extension Annotation {
                                   dy: clamp(offset.dy, limit.minY - box.minY, limit.maxY - box.maxY)))
     }
 
-    /// The points that can be dragged to reshape the annotation: both ends of an arrow,
-    /// the four corners of anything spanned by a rectangle, none for the rest.
+    /// The points that can be dragged to reshape the annotation: both ends of an arrow or
+    /// a line, the four corners of anything spanned by a rectangle, none for the rest.
     var handles: [CGPoint] {
         guard hasTwoPoints else { return [] }
-        if tool == .arrow { return points }
+        if isSegment { return points }
         // Handle `h` takes its x from point `h & 1` and its y from point `h >> 1`.
         return (0..<4).map { CGPoint(x: points[$0 & 1].x, y: points[$0 >> 1].y) }
     }
@@ -117,7 +121,7 @@ extension Annotation {
     func movingHandle(_ index: Int, to point: CGPoint) -> Annotation {
         guard hasTwoPoints else { return self }
         var copy = self
-        if tool == .arrow {
+        if isSegment {
             copy.points[index] = point
         } else {
             copy.points[index & 1].x = point.x

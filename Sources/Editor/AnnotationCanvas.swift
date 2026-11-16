@@ -96,7 +96,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
             context.setLineDash(phase: 0, lengths: [])
             return
         }
-        if annotation.tool != .arrow {
+        if !annotation.isSegment {
             context.setLineWidth(point)
             context.stroke(box)
         }
@@ -295,6 +295,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
             mouseUp(with: event(.leftMouseUp, path.last!.0, path.last!.1))
         }
         gesture(.arrow, 0, [(0.08, 0.9), (0.28, 0.72)])
+        gesture(.line, 2, [(0.08, 0.66), (0.3, 0.66)])
         gesture(.rectangle, 1, [(0.36, 0.62), (0.6, 0.92)])
         gesture(.ellipse, 2, [(0.66, 0.62), (0.9, 0.92)])
         let wave: [(CGFloat, CGFloat)] = (0...20).map { step in

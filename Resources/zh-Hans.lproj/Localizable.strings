@@ -2,6 +2,7 @@
 
 "tool.select" = "选择";
 "tool.arrow" = "箭头";
+"tool.line" = "直线";
 "tool.rectangle" = "矩形";
 "tool.ellipse" = "椭圆";
 "tool.pen" = "画笔";

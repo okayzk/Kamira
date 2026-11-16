@@ -1,11 +1,12 @@
 import UniformTypeIdentifiers
 
 enum AnnotationTool: Int, CaseIterable {
-    case arrow, rectangle, ellipse, pen, highlight, text, counter, mosaic
+    case arrow, line, rectangle, ellipse, pen, highlight, text, counter, mosaic
 
     var label: String {
         switch self {
         case .arrow: return L("tool.arrow")
+        case .line: return L("tool.line")
         case .rectangle: return L("tool.rectangle")
         case .ellipse: return L("tool.ellipse")
         case .pen: return L("tool.pen")
@@ -19,6 +20,7 @@ enum AnnotationTool: Int, CaseIterable {
     var symbolName: String {
         switch self {
         case .arrow: return "arrow.up.right"
+        case .line: return "line.diagonal"
         case .rectangle: return "rectangle"
         case .ellipse: return "circle"
         case .pen: return "scribble"

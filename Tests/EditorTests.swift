@@ -20,6 +20,21 @@ func testEditor() {
         check(inside.r < 0.5 && inside.b > 0.6, "rectangle interior should be untouched, got \(inside)")
     } else { check(false, "export failed") }
 
+    // A line is drawn end to end, with nothing at its end.
+    check(AnnotationTool.allCases.firstIndex(of: .line) == 1, "the line comes right after the arrow")
+    let rule = Annotation(tool: .line, color: red, points: [CGPoint(x: 20, y: 50), CGPoint(x: 180, y: 50)])
+    if let data = AnnotationRenderer.export(capture: base, annotations: [rule]),
+       let image = CapturedImage(data: data)?.fullSizeUncached() {
+        let middle = pixel(image, x: 200, y: 100)
+        check(middle.r > 0.8 && middle.b < 0.3, "a line is drawn along its length, got \(middle)")
+        let end = pixel(image, x: 340, y: 100)
+        check(end.r > 0.8 && end.b < 0.3, "a line reaches its end, got \(end)")
+        for y in [88, 112] {
+            let beside = pixel(image, x: 340, y: y)
+            check(beside.r < 0.5 && beside.b > 0.6, "a line has no arrowhead, got \(beside) at y \(y)")
+        }
+    } else { check(false, "line export failed") }
+
     let boxOnly = Annotation(tool: .rectangle, color: red, points: [CGPoint(x: 10, y: 10), CGPoint(x: 30, y: 40)])
     check(boxOnly.rect == CGRect(x: 10, y: 10, width: 20, height: 30), "rect from two corners")
     let reversed = Annotation(tool: .rectangle, color: red, points: [CGPoint(x: 30, y: 40), CGPoint(x: 10, y: 10)])
@@ -40,6 +55,13 @@ func testEditor() {
         check(arrow.hitTest(at(51, 49), tolerance: 3), "an arrow is hit along its line")
         check(!arrow.hitTest(at(80, 20), tolerance: 3), "an arrow is not hit beside its line")
         check(!arrow.hitTest(at(120, 120), tolerance: 3), "an arrow is not hit beyond its end")
+        let line = Annotation(tool: .line, color: red, points: [at(100, 0), at(0, 100)])
+        check(line.hitTest(at(49, 50), tolerance: 3), "a line is hit along its length")
+        check(!line.hitTest(at(20, 20), tolerance: 3) && !line.hitTest(at(-20, 120), tolerance: 3),
+              "a line is not hit beside it or beyond its end")
+        check(line.bounds == CGRect(x: 0, y: 0, width: 100, height: 100), "a line's bounds span its ends")
+        check(line.handles == [at(100, 0), at(0, 100)], "a line has a handle at each end")
+        check(line.movingHandle(0, to: at(60, 40)).points == [at(60, 40), at(0, 100)], "dragging one end of a line")
         let stroke = Annotation(tool: .pen, color: red, points: [at(0, 0), at(50, 0), at(50, 50)])
         check(stroke.hitTest(at(50, 30), tolerance: 3) && !stroke.hitTest(at(25, 25), tolerance: 3), "a pen stroke is hit on the stroke only")
         let marker = Annotation(tool: .highlight, color: red, points: [at(10, 10), at(60, 30)])
