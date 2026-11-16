@@ -23,3 +23,4 @@ A catcher is the name of a check in `Tests/main.swift`, a tracked file path, or 
 | ID | Reported | Symptom | Introduced | Fixed | Layer | Caught by |
 |---|---|---|---|---|---|---|
 | K-01 | 2026-11-15 | The welcome window's system-shortcut button had unclear Chinese wording and opened System Settings without the instructions available in Settings. | b806ca3 | 2104617 | hand-test | `internal/release-checklist.md` |
+| K-02 | 2026-11-16 | The first text recognition on a new Mac, after a macOS update or after another signature of the app had run, waited 30-50 s with nothing on screen while the system compiled Vision's models. | b806ca3 | d13a297 | hand-test | `internal/release-checklist.md` |
