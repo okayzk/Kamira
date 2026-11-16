@@ -4,6 +4,16 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
   <channel>
     <title>Kamira</title>
     <item>
+      <title>V0.3.0 Norma</title>
+      <pubDate>Mon, 16 Nov 2026 22:05:20 GMT</pubDate>
+      <sparkle:version>4</sparkle:version>
+      <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <link>https://github.com/okayzk/Kamira/releases/tag/V0.3.0</link>
+      <description>&lt;h3&gt;Changelog&lt;/h3&gt;&lt;ol&gt;&lt;li&gt;&lt;b&gt;Line Tool&lt;/b&gt;: The annotation editor has a line tool next to the arrow, for straight lines without a head.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Shift for Straight Lines, Squares and Circles&lt;/b&gt;: Holding Shift keeps arrows and lines horizontal, vertical or at 45°, rectangles square and ellipses round, both while drawing them and while dragging their handles.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Copied Image Files&lt;/b&gt;: Pin Clipboard Image and Annotate Clipboard Image now open an image file copied in Finder, quickly and without a large memory cost, even for a very large picture.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Lighter Area Selection&lt;/b&gt;: Choosing an area to record or to capture while scrolling no longer drives memory use up by hundreds of megabytes on large or multiple screens.&lt;/li&gt;&lt;/ol&gt;&lt;h3&gt;更新日志&lt;/h3&gt;&lt;ol&gt;&lt;li&gt;&lt;b&gt;直线工具&lt;/b&gt;：标注工具栏在箭头旁边新增直线，用来画不带箭头的直线。&lt;/li&gt;&lt;li&gt;&lt;b&gt;按住 Shift 画规整图形&lt;/b&gt;：按住 Shift，箭头和直线只能水平、垂直或成 45°，矩形会画成正方形，椭圆会画成正圆；拖动端点和边角时也一样。&lt;/li&gt;&lt;li&gt;&lt;b&gt;支持复制的图片文件&lt;/b&gt;：在访达里复制图片文件后，“贴上剪贴板图片”和“标注剪贴板图片”可以直接打开它；图片再大也打开得很快，不会占用大量内存。&lt;/li&gt;&lt;li&gt;&lt;b&gt;框选区域更省内存&lt;/b&gt;：录屏或长截图框选区域时，在大屏或多块屏幕上，内存不再一下涨到几百 MB。&lt;/li&gt;&lt;/ol&gt;</description>
+      <enclosure url="https://github.com/okayzk/Kamira/releases/download/V0.3.0/Kamira.zip" length="2998963" type="application/octet-stream" sparkle:edSignature="TdoklLY0HTFW/0YnxP7y5nbTJGgf+rV++HmbV1JOLMPoQ8wK3cRSUj8vXxUeoHonXTylK/DQ/A0PvzCJ5lB0Cw=="></enclosure>
+    </item>
+    <item>
       <title>V0.2.0 Iris</title>
       <pubDate>Mon, 16 Nov 2026 14:42:41 GMT</pubDate>
       <sparkle:version>3</sparkle:version>
@@ -35,6 +45,6 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     </item>
   </channel>
 </rss><!-- sparkle-signatures:
-edSignature: 5Rrxa0w0qWuJSnuBsYRVQwUcnwFHWB62DxP03zsUvP43/+FO0KSgu73mY2PFZiRHrEBaTpOfd3uxEGAJnK1NDg==
-length: 9507
+edSignature: 9wkYY30Kn52vL5nzSu1Gp8GEQWZd72umuJ//rxeAChwis4CuB+9WgOPr50gkZRvhsIBbBzv3NZtNPt+ZNKeIAQ==
+length: 11872
 -->
