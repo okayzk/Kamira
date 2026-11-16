@@ -4,6 +4,16 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
   <channel>
     <title>Kamira</title>
     <item>
+      <title>V0.2.0 Iris</title>
+      <pubDate>Mon, 16 Nov 2026 14:42:41 GMT</pubDate>
+      <sparkle:version>3</sparkle:version>
+      <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <link>https://github.com/okayzk/Kamira/releases/tag/V0.2.0</link>
+      <description>&lt;h3&gt;Changelog&lt;/h3&gt;&lt;ol&gt;&lt;li&gt;&lt;b&gt;Accessibility&lt;/b&gt;: VoiceOver reads the name of every control, the buttons on preview cards and pins work without hovering, and messages are announced.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Faster First Text Recognition&lt;/b&gt;: Text recognition prepares itself at launch, so the first reading after installing or updating macOS no longer waits half a minute in silence.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Scrolling Capture Stops With the App&lt;/b&gt;: If Kamira quits unexpectedly during a scrolling capture, the capture now stops too instead of carrying on in the background.&lt;/li&gt;&lt;/ol&gt;&lt;h3&gt;更新日志&lt;/h3&gt;&lt;ol&gt;&lt;li&gt;&lt;b&gt;支持无障碍&lt;/b&gt;：旁白能读出每个按钮的名称，预览卡片和贴图上的按钮不用悬停也能操作，提示信息会自动播报。&lt;/li&gt;&lt;li&gt;&lt;b&gt;首次识别文字更快&lt;/b&gt;：启动时就准备好文字识别，安装后或系统更新后第一次识别，不再无声地等上半分钟。&lt;/li&gt;&lt;li&gt;&lt;b&gt;长截图随应用停止&lt;/b&gt;：长截图进行中 Kamira 意外退出时，截图会一起停止，不再在后台继续截屏。&lt;/li&gt;&lt;/ol&gt;</description>
+      <enclosure url="https://github.com/okayzk/Kamira/releases/download/V0.2.0/Kamira.zip" length="2981966" type="application/octet-stream" sparkle:edSignature="f9eE1j1psNgVrd9MsFHaVkbKJvU29fQV8evpmTJBXucxiSteTeqHrKJ3fQQJx+8ZuQEGdPte0/etQas5OmIFAA=="></enclosure>
+    </item>
+    <item>
       <title>V0.1.1 Echo</title>
       <pubDate>Sun, 15 Nov 2026 21:21:45 GMT</pubDate>
       <sparkle:version>2</sparkle:version>
@@ -25,6 +35,6 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     </item>
   </channel>
 </rss><!-- sparkle-signatures:
-edSignature: W3Xe5//3qLcNUteabHhdb06u6EkuKuAPzQ8501uceknFL2PPlZ/CF1P+awSu9yIn6IRV02T6bsjPTUhXk7uFBQ==
-length: 7603
+edSignature: 5Rrxa0w0qWuJSnuBsYRVQwUcnwFHWB62DxP03zsUvP43/+FO0KSgu73mY2PFZiRHrEBaTpOfd3uxEGAJnK1NDg==
+length: 9507
 -->
