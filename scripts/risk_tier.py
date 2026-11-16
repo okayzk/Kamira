@@ -13,7 +13,7 @@ GATES = [
                  "idle must stay under 50 MB (AGENTS.md, Rules)."),
     ("Sources/App/AppDelegate.swift", "Entry points: menu, Quick Panel and shortcut reach the same code; "
                                       "check each one the change touches."),
-    ("Sources/App/Settings.swift", "Hand test: login item, hidden menu bar icon and reopening the app "
+    ("Sources/Settings/", "Hand test: login item, hidden menu bar icon and reopening the app "
                                    "(internal/release-checklist.md, Settings)."),
     ("Sources/Editor/", "Screenshots: `--demo-draw` and `--demo-move` in both languages; hand test real "
                         "mouse drawing, selecting and dragging (internal/release-checklist.md, Editor)."),
@@ -21,11 +21,11 @@ GATES = [
                          "launch; hand test Copy, Save, drag out."),
     ("Sources/Recording/", "Run `--demo-record 3` (and with `--gif`, `--mic`); hand test stopping from the "
                            "menu bar and from the system's control; measure the helper's memory."),
-    ("Sources/Capture/Scroll", "Run a real scrolling capture on a page with a fixed header and on a "
+    ("Sources/ScrollCapture/", "Run a real scrolling capture on a page with a fixed header and on a "
                                "terminal (internal/release-checklist.md, Scrolling capture)."),
-    ("Sources/Capture/TextRecognizer.swift", "Time `--ocr <image>` in a fresh process on mixed Chinese and "
+    ("Sources/TextRecognition/", "Time `--ocr <image>` in a fresh process on mixed Chinese and "
                                              "code; it took 15 s with the wrong settings."),
-    ("Sources/Capture/RegionSelector.swift", "Hand test the selector on every screen: drag, whole screen, "
+    ("Sources/Selection/", "Hand test the selector on every screen: drag, whole screen, "
                                              "window, Esc."),
     ("Sources/", "Run `scripts/accessibility_audit.sh`: every control keeps a name and an identifier."),
     ("Resources/", "Look at the changed text in the app in both languages "
