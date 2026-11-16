@@ -12,5 +12,5 @@ mkdir -p build
   Sources/TextRecognition/TextRecognizer.swift \
   Sources/Screenshot/WindowShadow.swift Sources/Shared/WindowShadowLevel.swift \
   Sources/Editor/Annotation.swift Sources/Editor/AnnotationTool.swift Sources/Editor/AnnotationRenderer.swift Sources/Editor/EditorZoom.swift \
-  Tests/main.swift -o build/tests
+  Tests/*.swift -o build/tests
 build/tests

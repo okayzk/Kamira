@@ -9,14 +9,14 @@ A defect that nothing catches yet gets a test that fails on the old code before 
 ## Layers, earliest first
 
 - `write-time`: the author's own check before committing, such as a grep for sites of the same shape, or a test run red on the old code.
-- `unit`: the Swift tests in `Tests/main.swift` (`make test`).
+- `unit`: the Swift tests in `Tests/`, one file per source folder (`make test`).
 - `check`: the other gates in `make check`: both text tables, the release notes, this ledger.
 - `review`: a diff review or a sweep with the `bugs` skill.
 - `release-preflight`: `scripts/release.sh` preflight and `scripts/package.sh`.
 - `hand-test`: the checklist in `internal/release-checklist.md`, run in the packaged app.
 - `field`: only a user's Mac shows it.
 
-A catcher is the name of a check in `Tests/main.swift`, a tracked file path, or the name of a workflow step.
+A catcher is the name of a check in `Tests/`, a tracked file path, or the name of a workflow step.
 
 ## Incidents
 
