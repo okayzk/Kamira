@@ -3,23 +3,8 @@ import Carbon.HIToolbox
 
 /// Menu bar item, global shortcut, All-in-One palette, and the capture → preview → pin flow.
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private static let maxPreviews = 5
-
     private var statusItem: NSStatusItem!
     private var palette: NSPanel?
-    /// Oldest first. On screen the newest is frontmost, with older ones tucked behind it
-    /// until the pointer is over the stack.
-    private var previews: [PreviewOverlay] = []
-    private var previewsExpanded = false
-    /// The screen the preview stack stands on.
-    private var previewScreen: NSScreen?
-    /// Runs only while the pointer is over the preview stack.
-    private var hoverTimer: Timer?
-    private var pins: [PinnedImageWindow] = []
-    /// Running annotation editors; each is its own process, see `EditorProcessDelegate`.
-    private var editors: [Process] = []
-    /// Running Quick Look helpers, one per recording being looked at.
-    private var quickLooks: [Process] = []
     private var hotKeys: [EventHotKeyRef?] = []
     /// The menu items that show an action's global shortcut.
     private var shortcutItems: [ShortcutAction: NSMenuItem] = [:]
@@ -33,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var toast: Toast?
     private let textReader = TextReader()
     private lazy var screenshots = ScreenshotTaker(directory: captureDirectory)
+    private lazy var previews = PreviewStack(dragDirectory: dragDirectory)
+    private let pins = PinBoard()
+    private lazy var editors = EditorLauncher(directory: dragDirectory)
     private var regionSelector: RegionSelector?
     /// Outline around the region being recorded.
     private var recordingFrame: RecordingFrameWindow?
@@ -62,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !QuietMode.isOn { Updater.start() }
         QuietMode.start()
         configureScreenshots()
+        connectPreviewsPinsAndEditors()
         configureTextReader()
         textReader.warmUp()
         // The first start only. `--demo-welcome` shows it again; `--demo-welcome-pending`
@@ -172,15 +161,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // `--demo-recording <file>` shows the floating preview for an existing recording.
         if let index = arguments.firstIndex(of: "--demo-recording"), index + 1 < arguments.count {
-            showRecordingPreview(URL(fileURLWithPath: arguments[index + 1]), pointSize: CGSize(width: 800, height: 500))
+            previews.showRecording(URL(fileURLWithPath: arguments[index + 1]), pointSize: CGSize(width: 800, height: 500))
         }
         for (index, flag) in arguments.enumerated().dropLast() where flag.hasPrefix("--demo-") {
             guard let data = try? Data(contentsOf: URL(fileURLWithPath: arguments[index + 1]), options: .alwaysMapped),
                   let capture = CapturedImage.stored(data, in: captureDirectory) else { continue }
-            if flag == "--demo-preview" { showPreview(capture) }
-            if flag == "--demo-pin" { addPin(capture) }
-            if flag == "--demo-edit" { openEditor(capture) }
-            if ["--demo-draw", "--demo-copy", "--demo-move", "--demo-zoom"].contains(flag) { openEditor(capture, demo: flag) }
+            if flag == "--demo-preview" { previews.show(capture) }
+            if flag == "--demo-pin" { pins.add(capture) }
+            if flag == "--demo-edit" { editors.open(capture) }
+            if ["--demo-draw", "--demo-copy", "--demo-move", "--demo-zoom"].contains(flag) { editors.open(capture, demo: flag) }
         }
     }
 
@@ -192,8 +181,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        editors.forEach { $0.terminate() }
-        quickLooks.forEach { $0.terminate() }
+        editors.closeAll()
+        previews.closeQuickLooks()
         scrollCapture?.cancel()
         try? FileManager.default.removeItem(at: dragDirectory)
     }
@@ -287,21 +276,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Brings what is on screen in line with the settings.
     private func applySettings() {
         statusItem.isVisible = (settingsWindow != nil || !Settings.hideMenuBarIcon) && !QuietMode.isOn
-        // A preview that was switched off goes away; a recording is in the save folder already.
-        for overlay in previews where !(overlay.isRecording ? Settings.recordingPreviewEnabled : Settings.previewEnabled) {
-            overlay.close()
-        }
-        previews.removeAll { !$0.isVisible }
-        previews.forEach { $0.autoCloseDelay = closeDelay(recording: $0.isRecording) }
-        pins.forEach { $0.hoverFade = Settings.fadePinsOnHover }
+        previews.applySettings()
+        pins.applySettings()
         registerHotKeys()
         showShortcutsInMenu()
-    }
-
-    /// How long a preview stays by itself; nil keeps it until it is closed.
-    private func closeDelay(recording: Bool) -> TimeInterval? {
-        let seconds = recording ? Settings.recordingPreviewCloseAfter : Settings.previewCloseAfter
-        return seconds > 0 ? TimeInterval(seconds) : nil
     }
 
     @discardableResult
@@ -472,7 +450,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func configureScreenshots() {
         screenshots.onCaptured = { [weak self] capture in
-            if Settings.previewEnabled { self?.showPreview(capture) }
+            if Settings.previewEnabled { self?.previews.show(capture) }
         }
         screenshots.onError = { [weak self] message in self?.showError(message) }
     }
@@ -605,7 +583,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         recorder.onFinished = { [weak self] result in
             switch result {
             case .success(let url):
-                self?.showRecordingPreview(url, pointSize: self?.recorder.lastPointSize ?? .zero)
+                self?.previews.showRecording(url, pointSize: self?.recorder.lastPointSize ?? .zero)
             case .failure(let error):
                 QuietMode.activate()
                 self?.showError(L("error.recording", error.localizedDescription))
@@ -661,163 +639,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.title = String(format: " %d:%02d", seconds / 60, seconds % 60)
     }
 
-    // MARK: Floating previews
+    // MARK: Previews, pins and the editor
 
-    private func showPreview(_ capture: CapturedImage) {
-        let overlay = PreviewOverlay(capture: capture)
-        overlay.dragDirectory = dragDirectory
-        overlay.autoCloseDelay = closeDelay(recording: false)
-        overlay.onPin = { [weak self] capture in self?.addPin(capture) }
-        overlay.onAnnotate = { [weak self] capture in self?.openEditor(capture) }
-        present(overlay)
-    }
-
-    /// Preview for a finished recording. The file is in the save folder already, written
-    /// there as it was recorded; closing the preview, by hand or by itself, leaves it there.
-    private func showRecordingPreview(_ url: URL, pointSize: CGSize) {
-        guard Settings.recordingPreviewEnabled else { return }
-        let side = Int(min(1600, max(pointSize.width, pointSize.height)))
-        let overlay = PreviewOverlay(recording: url, gifMaxSide: side)
-        overlay.autoCloseDelay = closeDelay(recording: true)
-        overlay.onQuickLook = { [weak self] file in self?.openQuickLook(file) }
-        overlay.convertToGIF = { video, gif, maxSide, done in
+    /// A preview's Pin and Annotate, a pin's Annotate and the editor's Pin hand the
+    /// picture from one to the other.
+    private func connectPreviewsPinsAndEditors() {
+        previews.onPin = { [weak self] capture in self?.pins.add(capture) }
+        previews.onAnnotate = { [weak self] capture in self?.editors.open(capture) }
+        previews.convertToGIF = { video, gif, maxSide, done in
             ScreenRecorder.convertToGIF(video: video, gif: gif, maxSide: maxSide, completion: done)
         }
-        present(overlay)
+        pins.onAnnotate = { [weak self] capture in self?.editors.open(capture) }
+        editors.onPin = { [weak self] capture in self?.pins.add(capture) }
+        editors.onError = { [weak self] message in self?.showError(message) }
     }
-
-    /// Shows a recording in the system's Quick Look, in a helper process (see
-    /// `QuickLookProcessDelegate`).
-    private func openQuickLook(_ file: URL) {
-        let helper = Process()
-        helper.executableURL = Bundle.main.executableURL
-        helper.arguments = ["--quicklook", file.path] + QuietMode.arguments
-        helper.terminationHandler = { [weak self] process in
-            DispatchQueue.main.async { self?.quickLooks.removeAll { $0 === process } }
-        }
-        do {
-            try helper.run()
-            quickLooks.append(helper)
-        } catch {
-            NSSound.beep()
-        }
-    }
-
-    private func present(_ overlay: PreviewOverlay) {
-        overlay.onDismiss = { [weak self] overlay in self?.removePreview(overlay) }
-        overlay.onPointerActivity = { [weak self] in self?.updatePreviewHover() }
-        previews.append(overlay)
-        // The stack stands on the screen the pointer is on when a capture arrives.
-        previewScreen = NSScreen.underPointer
-        if previews.count > Self.maxPreviews {
-            previews.removeFirst().close()
-        }
-        layoutPreviews()
-        overlay.alphaValue = 0
-        overlay.orderFrontRegardless()
-        overlay.animator().alphaValue = 1
-    }
-
-    private func removePreview(_ overlay: PreviewOverlay) {
-        overlay.close()
-        previews.removeAll { $0 === overlay }
-        layoutPreviews()
-        updatePreviewHover()
-    }
-
-    /// Works out from the pointer position which overlay is hovered, and expands the stack
-    /// while the pointer is over it. Overlays overlap when collapsed and move when the
-    /// stack expands, so this is re-checked on a short timer until the pointer leaves.
-    private func updatePreviewHover() {
-        let pointer = NSEvent.mouseLocation
-        // Collapsed overlays overlap; the newest is frontmost and wins.
-        let hovered = previews.last { $0.frame.contains(pointer) }
-        previews.forEach { $0.setHovering($0 === hovered) }
-        // The margin keeps the stack open while crossing the gap between two overlays.
-        let overStack = previews.contains { $0.frame.insetBy(dx: -8, dy: -8).contains(pointer) }
-        if overStack {
-            if !previewsExpanded {
-                previewsExpanded = true
-                layoutPreviews()
-            }
-            if hoverTimer == nil {
-                hoverTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                    self?.updatePreviewHover()
-                }
-            }
-        } else {
-            hoverTimer?.invalidate()
-            hoverTimer = nil
-            if previewsExpanded {
-                previewsExpanded = false
-                layoutPreviews()
-            }
-        }
-    }
-
-    /// Places the overlays in the bottom-left corner, newest lowest. Expanded, they form a
-    /// column; collapsed, older ones peek out narrower above the newest like a deck of cards.
-    private func layoutPreviews() {
-        let visible = previewScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let size = PreviewCard.size
-        let base = NSPoint(x: visible.minX + 18, y: visible.minY + 18)
-        for (index, overlay) in previews.reversed().enumerated() {
-            let depth = CGFloat(index)
-            let frame = previewsExpanded
-                ? NSRect(x: base.x, y: base.y + depth * (size.height + 10),
-                         width: size.width, height: size.height)
-                : NSRect(x: base.x + depth * 7, y: base.y + depth * 8,
-                         width: size.width - depth * 14, height: size.height)
-            if overlay.isVisible {
-                overlay.animator().setFrame(frame, display: true)
-            } else {
-                overlay.setFrame(frame, display: false)
-            }
-        }
-    }
-
-    // MARK: Annotation
 
     @objc private func annotateClipboard() {
         guard let capture = CapturedImage.fromPasteboard(.general, storingIn: captureDirectory) else {
             showError(L("error.noClipboardImage.annotate"))
             return
         }
-        openEditor(capture)
+        editors.open(capture)
     }
-
-    /// Opens the annotation editor in a helper process, so that the memory editing
-    /// needs is fully returned when the editor closes. A pinned result comes back as a file.
-    private func openEditor(_ capture: CapturedImage, demo: String? = nil) {
-        let id = UUID().uuidString
-        let imageURL = dragDirectory.appendingPathComponent("edit-\(id).png")
-        let pinURL = dragDirectory.appendingPathComponent("pin-\(id).png")
-        let helper = Process()
-        helper.executableURL = Bundle.main.executableURL
-        helper.arguments = ["--editor", imageURL.path, pinURL.path] + (demo.map { [$0] } ?? []) + QuietMode.arguments
-        helper.terminationHandler = { [weak self] process in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                self.editors.removeAll { $0 === process }
-                // The capture takes the file over and deletes it when the pin closes.
-                if FileManager.default.fileExists(atPath: pinURL.path),
-                   let result = CapturedImage(owningFile: pinURL) {
-                    self.addPin(result)
-                }
-                try? FileManager.default.removeItem(at: imageURL)
-            }
-        }
-        do {
-            try FileManager.default.createDirectory(at: dragDirectory, withIntermediateDirectories: true)
-            try capture.data.write(to: imageURL, options: .atomic)
-            try helper.run()
-            editors.append(helper)
-        } catch {
-            showError(L("error.editor", error.localizedDescription))
-        }
-    }
-
-    // MARK: Pins
 
     @objc private func pinClipboard() {
         hidePalette()
@@ -825,29 +668,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showError(L("error.noClipboardImage.pin"))
             return
         }
-        addPin(capture)
+        pins.add(capture)
     }
 
-    private func addPin(_ capture: CapturedImage) {
-        let pin = PinnedImageWindow(capture: capture, offset: CGFloat(pins.count % 5) * 22)
-        pin.hoverFade = Settings.fadePinsOnHover
-        pin.onRemove = { [weak self] window in
-            window.close()
-            self?.pins.removeAll { $0 === window }
-        }
-        pin.onAnnotate = { [weak self] window in
-            self?.openEditor(window.capture)
-            window.close()
-            self?.pins.removeAll { $0 === window }
-        }
-        pins.append(pin)
-        pin.orderFrontRegardless()
-    }
-
-    @objc private func closeAllPins() {
-        pins.forEach { $0.close() }
-        pins.removeAll()
-    }
+    @objc private func closeAllPins() { pins.closeAll() }
 
     private func showError(_ message: String) {
         let alert = NSAlert()
