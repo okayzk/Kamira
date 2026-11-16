@@ -11,10 +11,10 @@ NAME = load()["NAME"]
 GATES = [
     ("Sources/", "Memory: `footprint <pid>` of the menu bar app after the change, idle and after use; "
                  "idle must stay under 50 MB (AGENTS.md, Rules)."),
-    ("Sources/App/AppDelegate.swift", "Entry points: menu, Quick Panel and shortcut reach the same code; "
-                                      "check each one the change touches."),
+    ("Sources/App/", "Entry points: menu, Quick Panel and shortcut reach the same code; "
+                     "check each one the change touches."),
     ("Sources/Settings/", "Hand test: login item, hidden menu bar icon and reopening the app "
-                                   "(internal/release-checklist.md, Settings)."),
+                          "(internal/release-checklist.md, Settings)."),
     ("Sources/Editor/", "Screenshots: `--demo-draw` and `--demo-move` in both languages; hand test real "
                         "mouse drawing, selecting and dragging (internal/release-checklist.md, Editor)."),
     ("Sources/Preview/", "Screenshots: `--demo-preview`, `--demo-pin`, `--demo-recording` within 10 s of "
@@ -24,9 +24,9 @@ GATES = [
     ("Sources/ScrollCapture/", "Run a real scrolling capture on a page with a fixed header and on a "
                                "terminal (internal/release-checklist.md, Scrolling capture)."),
     ("Sources/TextRecognition/", "Time `--ocr <image>` in a fresh process on mixed Chinese and "
-                                             "code; it took 15 s with the wrong settings."),
+                                 "code; it took 15 s with the wrong settings."),
     ("Sources/Selection/", "Hand test the selector on every screen: drag, whole screen, "
-                                             "window, Esc."),
+                           "window, Esc."),
     ("Sources/", "Run `scripts/accessibility_audit.sh`: every control keeps a name and an identifier."),
     ("Resources/", "Look at the changed text in the app in both languages "
                    "(`-AppleLanguages \"(zh-Hans)\"` and `\"(en)\"`)."),
@@ -40,11 +40,19 @@ GATES = [
     (".github/RELEASE_NOTES.md", "Run `scripts/check_release_notes.sh`; read both languages aloud."),
 ]
 
+def git(*args):
+    return subprocess.run(["git", *args], capture_output=True, text=True).stdout.split("\n")
+
 def changed():
-    def git(*args):
-        return subprocess.run(["git", *args], capture_output=True, text=True).stdout.split("\n")
     files = [line[3:] for line in git("status", "--porcelain") if line]
     return files or [name for name in git("diff", "--name-only", "HEAD~1", "HEAD") if name]
+
+# A prefix that names no file any more (after a move) would never ask for its check.
+tracked = [name for name in git("ls-files") if name]
+stale = [prefix for prefix, _ in GATES if not any(name.startswith(prefix) for name in tracked)]
+if stale:
+    print("risk_tier.py names paths that no longer exist: " + ", ".join(stale))
+    sys.exit(1)
 
 files = sys.argv[1:] or changed()
 needed = [gate for prefix, gate in GATES if any(name.startswith(prefix) for name in files)]
