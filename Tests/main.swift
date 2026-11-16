@@ -13,6 +13,7 @@ testScreenshot()
 testEditor()
 testRecording()
 testScrollCapture()
+testSelection()
 testTextRecognition()
 testApp()
 

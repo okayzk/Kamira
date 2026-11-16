@@ -9,7 +9,7 @@ mkdir -p build
   Sources/Shared/Localization.swift Sources/Shared/Shortcut.swift Sources/Shared/SystemHotKey.swift Sources/Shared/ShortcutAction.swift Sources/Shared/FileNaming.swift Sources/Shared/RecordingSize.swift Sources/Shared/PreviewTiming.swift Sources/Shared/UpdatePolicy.swift Sources/Shared/CapturedImage.swift \
   Sources/Recording/LogFile.swift Sources/Recording/GIFWriter.swift \
   Sources/ScrollCapture/ScrollStitcher.swift Sources/ScrollCapture/ScrollPreviewStrip.swift Sources/ScrollCapture/ScrollPreviewLayout.swift \
-  Sources/TextRecognition/TextRecognizer.swift \
+  Sources/TextRecognition/TextRecognizer.swift Sources/Selection/SelectionShade.swift \
   Sources/Screenshot/WindowShadow.swift Sources/Shared/WindowShadowLevel.swift \
   Sources/Editor/Annotation.swift Sources/Editor/AnnotationTool.swift Sources/Editor/AnnotationRenderer.swift Sources/Editor/EditorZoom.swift \
   Tests/*.swift -o build/tests
