@@ -156,7 +156,7 @@
 "about.source" = "在 GitHub 上查看";
 "about.showWelcome" = "显示欢迎页";
 "about.checkForUpdates" = "检查更新…";
-"about.license" = "开源，GPLv3 许可";
+"about.license" = "开源，MIT 许可";
 
 "tooltip.withShortcut" = "%@（%@）";
 "recording.stopped.size" = "录屏已到 %d GB 上限，已自动停止";

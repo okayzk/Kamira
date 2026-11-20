@@ -13,7 +13,7 @@
   <a href="https://github.com/okayzk/Kamira/releases"><img src="https://img.shields.io/github/v/tag/okayzk/Kamira?label=version&style=flat-square" alt="Version"></a>
   <img src="https://img.shields.io/badge/macOS-26%2B-black?style=flat-square&logo=apple" alt="macOS 26+">
   <img src="https://img.shields.io/badge/idle%20memory-~20%20MB-287A3D?style=flat-square" alt="About 20 MB when idle">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue.svg?style=flat-square" alt="GPLv3 License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="MIT License"></a>
 </div>
 
 <p align="center">
@@ -238,4 +238,4 @@ make check        # tests and gates
 
 ## License
 
-Copyright (c) 2026 okayzk. Licensed under the GNU General Public License, version 3 only (GPL-3.0-only). See [LICENSE](LICENSE).
+Copyright (c) 2026 okayzk. Released under the MIT License. See [LICENSE](LICENSE).

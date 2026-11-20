@@ -156,7 +156,7 @@
 "about.source" = "View on GitHub";
 "about.showWelcome" = "Show Welcome Window";
 "about.checkForUpdates" = "Check for Updates…";
-"about.license" = "Open source, GPLv3 License";
+"about.license" = "Open source, MIT License";
 
 "tooltip.withShortcut" = "%@ (%@)";
 "recording.stopped.size" = "Recording stopped at %d GB";

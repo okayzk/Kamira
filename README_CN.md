@@ -11,7 +11,7 @@
   </p>
   <a href="https://github.com/okayzk/Kamira/releases"><img src="https://img.shields.io/github/v/tag/okayzk/Kamira?label=%E7%89%88%E6%9C%AC&style=flat-square" alt="版本"></a>
   <img src="https://img.shields.io/badge/macOS-26%2B-black?style=flat-square&logo=apple" alt="macOS 26+">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue.svg?style=flat-square" alt="GPLv3 许可"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="MIT 许可"></a>
 </div>
 
 <p align="center">
@@ -236,4 +236,4 @@ make check        # 测试与各项检查
 
 ## 许可
 
-Copyright (c) 2026 okayzk。采用 GNU 通用公共许可证第 3 版（GPL-3.0-only），见 [LICENSE](LICENSE)。
+Copyright (c) 2026 okayzk。采用 MIT 许可证发布，见 [LICENSE](LICENSE)。
