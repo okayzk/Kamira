@@ -22,17 +22,31 @@
 
 ## Why
 
-The Mac’s built-in screenshot and recording tools already work well. Kamira keeps the familiar screenshot controls and adds everyday conveniences like pinning images, capturing scrolling pages, and copying text from the screen—all while keeping its background memory use low.
+Kamira began as my own lighter alternative to [CleanShot X](https://cleanshot.com): keep what I love about it—the floating preview, pins, and a good-looking interface—and leave out everything beyond taking screenshots, so an app that is always running stays small.
 
 ## Highlights
 
-**1. Familiar screenshot controls.** Select an area with the Mac’s built-in screenshot tool, press Space to switch to a window, or Esc to cancel. There’s nothing new to learn.
+**1. It captures the screen and leaves the rest to tools that do it better.**
 
-**2. Low memory use.** The app uses about 20 MB while running in the background. More demanding tasks, such as annotation, GIF conversion, and text recognition, run in separate helper processes that quit when finished, returning their memory to the system.
+- **Capture history**: every screenshot goes to the clipboard, so a clipboard manager can keep the history.
+- **Cloud upload**: use the cloud drive or image host you already have, and drag the preview card straight into it.
+- **Video editing and heavy image editing**: a recording's card opens it in your default app, such as QuickTime Player, for trimming. Annotation covers everyday marks like arrows, text, and pixelation.
+- **Specialist text recognition**: formulas and similar specialist needs belong to dedicated apps. Kamira reads everyday Chinese and English.
+- **Background styling, translation, and colour picking**: also left out.
 
-**3. Local processing, private captures.** Screenshots, recordings, and text recognition are processed on your Mac. Your screenshots and recordings are not uploaded. No account is required, and no usage data is collected. Network access is used only to check for and download updates from GitHub; automatic updates can be turned off.
+**2. Where macOS already has a tool, Kamira uses it.**
 
-**4. At home on your Mac.** The macOS 26 Liquid Glass appearance, system icons, and familiar panels fit naturally alongside your other Mac apps.
+- Rather than rebuilding screenshots, Kamira has the Mac's own `screencapture` take them, so selecting an area, pressing Space for a window, and Esc to cancel work exactly as they do in macOS. There’s nothing new to learn.
+- Recording is handed to the system, which writes the file itself (ScreenCaptureKit's `SCRecordingOutput`), instead of passing every frame through the app to be encoded.
+- Recordings play in Quick Look instead of a player of its own.
+
+**3. Light, and it stays light.** On top of the two points above, the memory-hungry tasks—annotation, GIF conversion, and text recognition—run in separate helper processes that quit when finished, handing their memory back to the system. The result: about 20 MB in the background, about 110 MB and 2 % CPU while recording, and still 43 MB after a round of every feature, against 288–416 MB for CleanShot X (see [Measured](#measured)). The cost is a moment's start-up for those tasks: each is ready within 0.4 seconds, and some take about 0.1 seconds longer than in CleanShot X.
+
+**4. Local processing, private captures.** Screenshots, recordings, and text recognition are processed on your Mac. Your screenshots and recordings are not uploaded. No account is required, and no usage data is collected. Network access is used only to check for and download updates from GitHub; automatic updates can be turned off.
+
+**5. At home on your Mac.** The macOS 26 Liquid Glass appearance, system icons, and familiar panels fit naturally alongside your other Mac apps.
+
+**6. Accessible, and easy for AI agents to drive.** VoiceOver reads the name of every control, and every control carries a fixed identifier, so Voice Control, automation tools, and AI agents can find and press it.
 
 ## Quick start
 
@@ -71,13 +85,12 @@ xattr -dr com.apple.quarantine "/Applications/Kamira.app"
 </table>
 
 - **Screenshots**: capture an area, a window, or the whole screen and copy it automatically to the clipboard. Optionally save captures to a folder of your choice with custom file naming.
-- **Floating preview**: screenshots and recordings appear as preview cards, with an optional auto-dismiss timer.
+- **Floating preview**: screenshots and recordings appear as preview cards, with an optional auto-dismiss timer. Several cards stack into a single pile with only the newest in full view, and spread out when you move the pointer over them, so a run of screenshots never takes over the screen the way it can in CleanShot X.
 - **Pins**: keep a screenshot above other windows for reference. It becomes translucent when you move the pointer over it.
 - **Annotation**: add arrows, lines, shapes, freehand strokes, highlights, text, numbered markers, and pixelation. Hold Shift for level lines, squares, and circles. Zoom in to edit fine details.
 - **Scrolling capture**: select a region and scroll manually to stitch a long image with a live preview. Overlapping content in consecutive frames is matched while fixed headers, sidebars, and similar elements are excluded from matching. Stitching has been verified on a test page with translucent Liquid Glass overlays.
 - **Text recognition (OCR)**: select an area to recognise and copy Chinese and English text entirely on your Mac, with no network connection needed. Text from multiple columns on the same line stays together, useful for tables and code.
 - **Recording**: record an area, a window, or the whole screen as video or GIF, with microphone and system audio available for video recordings.
-- **Accessibility**: VoiceOver reads the name of every control. The buttons that appear on preview cards and pins under the pointer are also available as actions, and messages are announced. Voice Control and automation tools find each control by a fixed identifier.
 - **Settings**: customise shortcuts, save locations, and preview behaviour. Launch at login or hide desktop icons during screenshots and recordings.
 - **Automatic updates**: at the bottom of **Settings → General**, choose Never, Check and Ask to Install, or Install Automatically. Automatic checks can run daily, weekly or monthly. The **Check for Updates…** button below is always available, including when automatic updates are set to Never.
 
@@ -217,7 +230,7 @@ Recordings used a 600 × 600 pt region changing 30 times per second, with each a
 
 ## FAQ
 
-- **Does it support cloud sharing or a capture history?** Neither is supported, by design. Background styling, translation, and picking colours from the screen are also outside the current feature set.
+- **Does it support cloud sharing or a capture history?** Neither, by design: see [Highlights](#highlights) for the reasons and what to use instead.
 - **Why macOS 26 or later?** The interface is made of Liquid Glass, which older systems do not have. This is a deliberate trade: one modern code path instead of several.
 - **Which recording options can I customise?** Choose an area, a window, or the whole screen; toggle the microphone, system audio, and start countdown; and record video or GIF. You can also set the save folder, file naming, a maximum size at which recording stops by itself, and floating previews. Resolution, frame rate, and bitrate controls are intentionally omitted. GIFs have no audio.
 - **Where are screenshots and recordings saved?** Screenshots are copied to the clipboard by default. In **Settings**, you can enable automatic saving and choose a folder. Recordings are always written straight into that folder as they are recorded; closing the floating preview never deletes one, and its Save As makes a copy elsewhere.
