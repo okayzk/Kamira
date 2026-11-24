@@ -50,14 +50,4 @@ struct CropFrame: Equatable {
         let dy = min(max(offset.dy, limit.minY - rect.minY), limit.maxY - rect.maxY)
         return CropFrame(rect: rect.offsetBy(dx: dx, dy: dy))
     }
-
-    /// `area`, in points from the bottom-left of a picture `pointSize` large, as whole
-    /// pixels from the top-left of its bitmap, `pixelSize` large.
-    static func pixelRect(of area: CGRect, pointSize: CGSize, pixelSize: CGSize) -> CGRect {
-        let sx = pixelSize.width / pointSize.width, sy = pixelSize.height / pointSize.height
-        let left = max(0, (area.minX * sx).rounded()), right = min(pixelSize.width, (area.maxX * sx).rounded())
-        let top = max(0, ((pointSize.height - area.maxY) * sy).rounded())
-        let bottom = min(pixelSize.height, ((pointSize.height - area.minY) * sy).rounded())
-        return CGRect(x: left, y: top, width: max(1, right - left), height: max(1, bottom - top))
-    }
 }

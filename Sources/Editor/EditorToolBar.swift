@@ -21,6 +21,9 @@ final class EditorToolBar: NSObject {
     /// The tool chosen; nil is the pointer, which selects.
     var onTool: ((AnnotationTool?) -> Void)?
     var onCrop: (() -> Void)?
+    /// A background was chosen for between several pictures (nil: see-through); `continuing`
+    /// while the colour panel is being dragged through.
+    var onBackground: ((_ background: CGColor?, _ continuing: Bool) -> Void)?
     var onZoom: (() -> Void)?
     var onPin: (() -> Void)?
     var onSave: (() -> Void)?
@@ -33,12 +36,23 @@ final class EditorToolBar: NSObject {
     private var cropButton = NSButton()
     private let colorButton = NSButton()
     private let toolPicker = NSSegmentedControl()
-    private var colorMenu: NSMenu?
+    /// The colour or background menu while it is open.
+    private var swatchMenu: NSMenu?
+    /// Whether the bar has the background button: only for several pictures. Set before `makeView`.
+    var showsBackground = false
+    private let backgroundButton = NSButton()
+    private var background: CGColor?
+    /// The background choices of the menu, nil being see-through.
+    private static let backgrounds: [(name: String, color: CGColor?)] = [
+        (L("background.none"), nil),
+        (L("color.white"), CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)),
+        (L("color.black"), CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 1))
+    ]
 
     /// The bar, `height` high.
     func makeView(height: CGFloat) -> NSView {
         colorButton.isBordered = false
-        colorButton.image = Self.swatch(color, diameter: 20)
+        colorButton.image = Self.swatch(color, size: 20)
         colorButton.imagePosition = .imageOnly
         colorButton.toolTip = L("editor.color")
         colorButton.setAccessibilityLabel(L("editor.color"))
@@ -74,12 +88,20 @@ final class EditorToolBar: NSObject {
 
         zoomButton = iconButton("plus.magnifyingglass", L("editor.zoom"), "editor.zoom", #selector(zoomClicked))
         cropButton = iconButton("crop", L("editor.crop"), "editor.crop", #selector(cropClicked))
+        backgroundButton.isBordered = false
+        backgroundButton.imagePosition = .imageOnly
+        backgroundButton.toolTip = L("editor.background")
+        backgroundButton.setAccessibilityLabel(L("editor.background"))
+        backgroundButton.setAccessibilityIdentifier("editor.background")
+        backgroundButton.target = self
+        backgroundButton.action = #selector(showBackgroundMenu)
+        backgroundButton.widthAnchor.constraint(equalToConstant: 28).isActive = true
         // The window has no title bar, so the bar also carries the way to close it.
         let row = DraggableRow(views: [
             iconButton("arrow.uturn.backward", L("action.undo"), "editor.undo", #selector(undoClicked)),
             colorButton,
             separator(), toolPicker, separator(),
-            cropButton, zoomButton,
+            cropButton] + (showsBackground ? [backgroundButton] : []) + [zoomButton,
             iconButton("pin", L("action.pin"), "editor.pin", #selector(pinClicked)),
             iconButton("square.and.arrow.down", L("action.save"), "editor.save", #selector(saveClicked)),
             iconButton("xmark", L("editor.close"), "editor.close", #selector(closeClicked)),
@@ -152,33 +174,49 @@ final class EditorToolBar: NSObject {
         return image.withSymbolConfiguration(.init(pointSize: 14, weight: .medium)) ?? image
     }
 
-    /// Filled circle used as a colour choice.
-    private static func swatch(_ color: CGColor, diameter: CGFloat) -> NSImage {
-        let image = NSImage(size: NSSize(width: diameter, height: diameter), flipped: false) { rect in
-            let circle = NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1))
-            (NSColor(cgColor: color) ?? .black).setFill()
-            circle.fill()
+    /// A colour choice: a filled circle for an annotation's colour, a rounded square for a
+    /// background; nil (see-through) is a checkerboard.
+    private static func swatch(_ color: CGColor?, size: CGFloat, round: Bool = true) -> NSImage {
+        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
+            let inner = rect.insetBy(dx: 1, dy: 1)
+            let shape = round ? NSBezierPath(ovalIn: inner) : NSBezierPath(roundedRect: inner, xRadius: 4, yRadius: 4)
+            if let color = color {
+                (NSColor(cgColor: color) ?? .black).setFill()
+                shape.fill()
+            } else {
+                NSGraphicsContext.saveGraphicsState()
+                shape.addClip()
+                NSColor.white.setFill()
+                rect.fill()
+                NSColor(white: 0.75, alpha: 1).setFill()
+                let cell = size / 4
+                for row in 0..<4 {
+                    for column in 0..<4 where (row + column) % 2 == 0 {
+                        NSRect(x: CGFloat(column) * cell, y: CGFloat(row) * cell, width: cell, height: cell).fill()
+                    }
+                }
+                NSGraphicsContext.restoreGraphicsState()
+            }
             NSColor(white: 0.5, alpha: 0.7).setStroke()
-            circle.lineWidth = 0.75
-            circle.stroke()
+            shape.lineWidth = 0.75
+            shape.stroke()
             return true
         }
         image.isTemplate = false
         return image
     }
 
-    // MARK: Colour
-
-    /// The quick colours as a row of swatches without names, then the system colour picker.
-    @objc private func showColorMenu() {
+    /// The colours as a row of swatches without names, then the system colour picker, shown
+    /// under `button`. The swatches' tags are their places in `colors`.
+    private func popUpSwatches(_ colors: [CGColor?], names: [String], round: Bool, under button: NSButton,
+                               chosen: Selector, more: Selector) {
         let menu = NSMenu()
-        let swatches = NSStackView(views: Self.palette.enumerated().map { index, color in
-            let button = NSButton(image: Self.swatch(color, diameter: 22), target: self,
-                                  action: #selector(swatchChosen(_:)))
-            button.isBordered = false
-            button.setAccessibilityLabel(Self.paletteNames[index])
-            button.tag = index
-            return button
+        let swatches = NSStackView(views: colors.enumerated().map { index, color in
+            let swatch = NSButton(image: Self.swatch(color, size: 22, round: round), target: self, action: chosen)
+            swatch.isBordered = false
+            swatch.setAccessibilityLabel(names[index])
+            swatch.tag = index
+            return swatch
         })
         swatches.orientation = .horizontal
         swatches.spacing = 8
@@ -188,15 +226,22 @@ final class EditorToolBar: NSObject {
         row.view = swatches
         menu.addItem(row)
         menu.addItem(.separator())
-        let more = NSMenuItem(title: L("editor.moreColors"), action: #selector(showColorPanel), keyEquivalent: "")
-        more.target = self
-        menu.addItem(more)
-        colorMenu = menu
-        menu.popUp(positioning: nil, at: NSPoint(x: -8, y: colorButton.bounds.maxY + 10), in: colorButton)
+        let picker = NSMenuItem(title: L("editor.moreColors"), action: more, keyEquivalent: "")
+        picker.target = self
+        menu.addItem(picker)
+        swatchMenu = menu
+        menu.popUp(positioning: nil, at: NSPoint(x: -8, y: button.bounds.maxY + 10), in: button)
+    }
+
+    // MARK: Colour
+
+    @objc private func showColorMenu() {
+        popUpSwatches(Self.palette, names: Self.paletteNames, round: true, under: colorButton,
+                      chosen: #selector(swatchChosen(_:)), more: #selector(showColorPanel))
     }
 
     @objc private func swatchChosen(_ sender: NSButton) {
-        colorMenu?.cancelTracking()
+        swatchMenu?.cancelTracking()
         setColor(Self.palette[sender.tag])
     }
 
@@ -216,7 +261,45 @@ final class EditorToolBar: NSObject {
 
     private func setColor(_ newColor: CGColor) {
         color = newColor
-        colorButton.image = Self.swatch(newColor, diameter: 20)
+        colorButton.image = Self.swatch(newColor, size: 20)
         onColor?(newColor)
+    }
+
+    // MARK: Background
+
+    /// Shows the background between several pictures on its button: a square of it, a
+    /// checkerboard for see-through.
+    func showBackground(_ newBackground: CGColor?) {
+        background = newBackground
+        backgroundButton.image = Self.swatch(newBackground, size: 20, round: false)
+        let choice = Self.backgrounds.first { $0.color == newBackground }
+        backgroundButton.setAccessibilityValue(choice?.name ?? L("background.custom"))
+    }
+
+    /// Laid out as the colour menu is, in squares: see-through, white and black, then the
+    /// system colour picker.
+    @objc private func showBackgroundMenu() {
+        popUpSwatches(Self.backgrounds.map(\.color), names: Self.backgrounds.map(\.name), round: false,
+                      under: backgroundButton, chosen: #selector(backgroundChosen(_:)),
+                      more: #selector(showBackgroundPanel))
+    }
+
+    @objc private func backgroundChosen(_ sender: NSButton) {
+        swatchMenu?.cancelTracking()
+        onBackground?(Self.backgrounds[sender.tag].color, false)
+    }
+
+    @objc private func showBackgroundPanel() {
+        let panel = NSColorPanel.shared
+        panel.showsAlpha = false
+        panel.color = background.flatMap { NSColor(cgColor: $0) } ?? .white
+        panel.setTarget(self)
+        panel.setAction(#selector(backgroundPanelChanged(_:)))
+        panel.orderFront(nil)
+    }
+
+    @objc private func backgroundPanelChanged(_ sender: NSColorPanel) {
+        guard let color = sender.color.usingColorSpace(.sRGB)?.cgColor else { return }
+        onBackground?(color, true)
     }
 }

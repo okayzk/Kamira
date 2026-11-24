@@ -57,6 +57,29 @@ func testShared() {
     check(CapturedImage(owningFile: junk) == nil, "a file that is not an image is rejected")
     check(!FileManager.default.fileExists(atPath: junk.path), "a rejected file is deleted too")
 
+    // Several screenshots combined keep the pictures they were made of, each with its
+    // place, for the editor; the capture takes their files over and deletes them with itself.
+    var partFiles: [URL] = []
+    do {
+        try? FileManager.default.createDirectory(at: storeDirectory, withIntermediateDirectories: true)
+        let whole = storeDirectory.appendingPathComponent("whole.png")
+        try? makeImageData(width: 100, height: 50, dpi: 72, type: .png).write(to: whole)
+        let frames = [CGRect(x: 0, y: 0, width: 40, height: 50), CGRect(x: 60, y: 0, width: 40, height: 50)]
+        let parts = frames.enumerated().map { index, frame -> CapturedImage.Part in
+            let file = storeDirectory.appendingPathComponent("part-\(index).png")
+            try? makeImageData(width: 40, height: 50, dpi: 72, type: .png).write(to: file)
+            return CapturedImage.Part(file: file, frame: frame)
+        }
+        let combined = CapturedImage(owningFile: whole, parts: parts)
+        partFiles = combined?.parts.map(\.file) ?? []
+        check(combined?.parts.map(\.frame) == frames, "each part keeps its place")
+        check(partFiles.count == 2 && partFiles.allSatisfy { FileManager.default.fileExists(atPath: $0.path) },
+              "the parts' files are there while the capture is")
+        check(CapturedImage(data: retinaPNG)?.parts.isEmpty == true, "an ordinary capture has no parts")
+    }
+    check(!partFiles.isEmpty && !partFiles.contains { FileManager.default.fileExists(atPath: $0.path) },
+          "the parts' files are deleted with the capture")
+
     // A copied image file is the file's own picture, even when Finder puts the file's
     // icon beside it, and the file itself is left where it was.
     do {

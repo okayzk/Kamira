@@ -102,6 +102,23 @@ enum Settings {
         set { UserDefaults.standard.set(newValue, forKey: "hideMenuBarIcon") }
     }
 
+    /// What lies between several screenshots combined into one: nil is see-through. Chosen
+    /// in the editor, and kept for the next time several are combined.
+    static var combinedBackground: CGColor? {
+        get {
+            guard let c = UserDefaults.standard.array(forKey: "combinedBackground") as? [Double], c.count == 4 else { return nil }
+            return CGColor(srgbRed: c[0], green: c[1], blue: c[2], alpha: c[3])
+        }
+        set {
+            let sRGB = CGColorSpace(name: CGColorSpace.sRGB)!
+            if let c = newValue?.converted(to: sRGB, intent: .defaultIntent, options: nil)?.components, c.count == 4 {
+                UserDefaults.standard.set(c.map(Double.init), forKey: "combinedBackground")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "combinedBackground")
+            }
+        }
+    }
+
     /// The shadow around a window capture: 0 for none, up to `WindowShadowLevel.system`
     /// for the system's own.
     static var windowShadowLevel: Int {

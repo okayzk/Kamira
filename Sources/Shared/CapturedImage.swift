@@ -10,7 +10,19 @@ import UniformTypeIdentifiers
 /// rather than read (`init(owningFile:)`): mapped pages cost no memory until touched and
 /// go straight back to the system, where allocated memory would linger after use.
 final class CapturedImage {
+    /// One of the pictures several screenshots were combined from, and its place in the
+    /// whole: in points from the bottom-left corner.
+    struct Part {
+        let file: URL
+        let frame: CGRect
+        /// Between the parts of a combined capture and around them, in points.
+        static let spacing: CGFloat = 16
+    }
+
     let data: Data
+    /// What a combined capture was made of, so the editor can lay the pictures out
+    /// again; empty for any other capture. The files go with this object.
+    let parts: [Part]
     /// The temporary file behind `data`, if any. It is deleted with this object.
     let fileURL: URL?
     /// Size in pixels.
@@ -27,12 +39,13 @@ final class CapturedImage {
     var wasDraggedOut = false
     static var dragGrace: TimeInterval = 300
 
-    convenience init?(data: Data) { self.init(data: data, fileURL: nil, ownFolder: nil) }
+    convenience init?(data: Data) { self.init(data: data, fileURL: nil, ownFolder: nil, parts: []) }
 
     /// Takes over an image file: moves it into a folder of its own under the name it will
     /// have when dragged out, maps it, and deletes both when this object goes away. A drag
-    /// then hands over this very file; no copy is written.
-    convenience init?(owningFile url: URL) {
+    /// then hands over this very file; no copy is written. The files of `parts` are taken
+    /// over the same way.
+    convenience init?(owningFile url: URL, parts: [Part] = []) {
         let name = FileNaming.screenshotName() + "." + (url.pathExtension.isEmpty ? "png" : url.pathExtension)
         let folder = url.deletingLastPathComponent().appendingPathComponent(UUID().uuidString, isDirectory: true)
         var file = folder.appendingPathComponent(name)
@@ -45,12 +58,20 @@ final class CapturedImage {
             file = url
             ownFolder = nil
         }
+        // Into the same folder, where that worked.
+        let parts = parts.enumerated().map { index, part -> Part in
+            guard let folder = ownFolder else { return part }
+            let moved = folder.appendingPathComponent("part-\(index).\(part.file.pathExtension)")
+            return (try? FileManager.default.moveItem(at: part.file, to: moved)) == nil
+                ? part : Part(file: moved, frame: part.frame)
+        }
         guard let mapped = try? Data(contentsOf: file, options: .alwaysMapped) else {
             try? FileManager.default.removeItem(at: file)
+            parts.forEach { try? FileManager.default.removeItem(at: $0.file) }
             if let ownFolder = ownFolder { try? FileManager.default.removeItem(at: ownFolder) }
             return nil
         }
-        self.init(data: mapped, fileURL: file, ownFolder: ownFolder)
+        self.init(data: mapped, fileURL: file, ownFolder: ownFolder, parts: parts)
     }
 
     /// Writes `data` into `directory`, as PNG, and returns a capture backed by that file.
@@ -74,8 +95,10 @@ final class CapturedImage {
     deinit {
         guard let fileURL = fileURL else { return }
         let folder = ownFolder
+        let partFiles = parts.map(\.file)
         let remove = {
             try? FileManager.default.removeItem(at: fileURL)
+            partFiles.forEach { try? FileManager.default.removeItem(at: $0) }
             if let folder = folder { try? FileManager.default.removeItem(at: folder) }
         }
         // A mapped file can be unlinked while mapped: the pages stay until unmapped.
@@ -86,17 +109,19 @@ final class CapturedImage {
         }
     }
 
-    private init?(data: Data, fileURL: URL?, ownFolder: URL?) {
+    private init?(data: Data, fileURL: URL?, ownFolder: URL?, parts: [Part]) {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.doubleValue,
               let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.doubleValue,
               width > 0, height > 0 else {
             if let fileURL = fileURL { try? FileManager.default.removeItem(at: fileURL) }
+            parts.forEach { try? FileManager.default.removeItem(at: $0.file) }
             if let ownFolder = ownFolder { try? FileManager.default.removeItem(at: ownFolder) }
             return nil
         }
         self.data = data
+        self.parts = parts
         self.fileURL = fileURL
         self.ownFolder = ownFolder
         self.source = source

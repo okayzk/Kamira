@@ -27,6 +27,16 @@
 "editor.zoom" = "Zoom (⌘+, ⌘−, ⌘0)";
 "editor.crop" = "Crop (Return to apply, Esc to cancel)";
 "editor.moreColors" = "More Colours…";
+"editor.background" = "Background between the pictures";
+"background.none" = "Transparent";
+"background.custom" = "Own colour";
+"layer.name" = "Picture %d";
+"layer.bringToFront" = "Bring to Front";
+"layer.sendToBack" = "Send to Back";
+"layer.moveLeft" = "Move Left";
+"layer.moveRight" = "Move Right";
+"layer.moveUp" = "Move Up";
+"layer.moveDown" = "Move Down";
 "color.red" = "Red";
 "color.yellow" = "Yellow";
 "color.green" = "Green";

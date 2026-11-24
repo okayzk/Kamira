@@ -18,6 +18,8 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
     private static let barHeight: CGFloat = 46
 
     private let capture: CapturedImage
+    /// What is edited: the capture, or the pictures it was combined from.
+    private let pictures: [CapturedImage]
     private let window: EditorWindow
     private let canvas: AnnotationCanvas
     /// Holds the canvas and zooms into it; as large as the picture, so at a zoom of 1
@@ -30,10 +32,18 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
     /// How wide the move handle and the tool bar are together: the window is never narrower.
     private var barRowWidth: CGFloat = 0
 
-    init(capture: CapturedImage) {
+    /// Edits `capture`, or with `parts` the pictures it was combined from, each where it lies.
+    init(capture: CapturedImage, parts: [(picture: CapturedImage, frame: CGRect)] = []) {
         self.capture = capture
-        let size = Self.canvasSize(for: capture.pointSize, on: NSScreen.underPointer)
-        canvas = AnnotationCanvas(capture: capture, size: size, color: toolBar.color)
+        pictures = parts.isEmpty ? [capture] : parts.map(\.picture)
+        let frames = parts.isEmpty ? [CGRect(origin: .zero, size: capture.pointSize)] : parts.map(\.frame)
+        let size = Self.canvasSize(for: LayerStack(frames: frames).bounds.size, on: NSScreen.underPointer)
+        canvas = AnnotationCanvas(pictures: pictures, frames: frames, background: Settings.combinedBackground,
+                                  size: size, color: toolBar.color)
+        if !parts.isEmpty {
+            toolBar.showsBackground = true
+            toolBar.showBackground(canvas.background)
+        }
         window = EditorWindow(contentRect: NSRect(origin: .zero, size: size),
                               styleMask: [.borderless], backing: .buffered, defer: false)
         super.init()
@@ -105,6 +115,14 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
             self.toolBar.showCropping(cropping, tool: self.canvas.tool)
         }
         canvas.onAreaChange = { [weak self] previous in self?.fitToArea(from: previous) }
+        // The background last chosen is also the one several screenshots are next combined on.
+        toolBar.onBackground = { [weak self] background, continuing in
+            self?.canvas.applyBackground(background, continuing: continuing)
+        }
+        canvas.onBackgroundChange = { [weak self] background in
+            Settings.combinedBackground = background
+            self?.toolBar.showBackground(background)
+        }
         toolBar.onZoom = { [weak self] in self?.zoomClicked() }
         toolBar.onPin = { [weak self] in self?.pinResult() }
         toolBar.onSave = { [weak self] in self?.saveResult() }
@@ -231,6 +249,12 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         if zoom > 1 { self.zoom(to: zoom) }
     }
 
+    /// Development aid; see `AnnotationCanvas.arrangeSamples`.
+    func runArrangeDemo() {
+        window.layoutIfNeeded()
+        canvas.arrangeSamples()
+    }
+
     // MARK: Zoom
 
     /// Zooms the picture in its place; the window keeps its size, and the part that no
@@ -258,15 +282,16 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
 
     // MARK: Results
 
-    /// The capture with the annotations burned in and cropped, or the untouched capture if
-    /// nothing was changed. A crop being adjusted is kept, as Return would.
+    /// The pictures where they lie, with the annotations burned in and cropped, or the
+    /// untouched capture if it is one picture and nothing was changed. A crop being
+    /// adjusted is kept, as Return would.
     private func exported() -> CapturedImage? {
         canvas.commitText()
         canvas.commitCrop()
-        let cropped = canvas.area != CGRect(origin: .zero, size: capture.pointSize)
-        if canvas.annotations.isEmpty, !cropped { return capture }
-        guard let data = AnnotationRenderer.export(capture: capture, annotations: canvas.annotations,
-                                                   area: cropped ? canvas.area : nil),
+        if canvas.annotations.isEmpty, !canvas.isCropped, !canvas.stack.isSeveral { return capture }
+        guard let data = AnnotationRenderer.export(pictures: pictures, stack: canvas.stack,
+                                                   background: canvas.background,
+                                                   annotations: canvas.annotations, area: canvas.area),
               let result = CapturedImage(data: data) else {
             NSSound.beep()
             return nil

@@ -137,6 +137,77 @@ func testEditor() {
     check(EditorZoom.clamped(0.3) == 1 && EditorZoom.clamped(20) == 8 && EditorZoom.clamped(3) == 3, "zoom limits")
 
     testCropping(base: base, red: red, counter: counter)
+    testLayers(red: red)
+}
+
+/// Several pictures in one editor: where each lies, which is on top, and the whole they make.
+private func testLayers(red: CGColor) {
+    let left = CGRect(x: 16, y: 16, width: 100, height: 50), right = CGRect(x: 132, y: 16, width: 60, height: 50)
+
+    // One picture is the canvas, as before; several have the gap around them.
+    check(LayerStack(frames: [CGRect(x: 0, y: 0, width: 200, height: 100)]).bounds == CGRect(x: 0, y: 0, width: 200, height: 100),
+          "one picture: the canvas is the picture")
+    var stack = LayerStack(frames: [left, right])
+    check(stack.isSeveral && stack.bounds == CGRect(x: 0, y: 0, width: 208, height: 82), "several: the gap around them, got \(stack.bounds)")
+    check(stack.layers.map(\.picture) == [0, 1], "in the order taken, the first at the bottom")
+
+    // The topmost picture under a point; none in the gap.
+    check(stack.topmost(at: CGPoint(x: 50, y: 40)) == 0 && stack.topmost(at: CGPoint(x: 150, y: 40)) == 1, "the picture under a point")
+    check(stack.topmost(at: CGPoint(x: 124, y: 40)) == nil, "nothing in the gap")
+
+    // A picture moved anywhere; the whole follows it, gap included.
+    stack.move(1, to: CGPoint(x: 16, y: -100))
+    check(stack.layers[1].frame == CGRect(x: 16, y: -100, width: 60, height: 50), "moved, got \(stack.layers[1].frame)")
+    check(stack.bounds == CGRect(x: 0, y: -116, width: 132, height: 198), "the whole takes it in, got \(stack.bounds)")
+
+    // Over one another, the later is on top until the order changes. Indices count
+    // from the bottom of the stack.
+    stack.move(1, to: CGPoint(x: 40, y: 30))
+    let overlap = CGPoint(x: 60, y: 40)
+    func pictureOnTop() -> Int? { stack.topmost(at: overlap).map { stack.layers[$0].picture } }
+    check(pictureOnTop() == 1, "the later one on top")
+    stack.sendToBack(1)
+    check(stack.layers.map(\.picture) == [1, 0] && pictureOnTop() == 0,
+          "sent to the back it lies under the other, got \(stack.layers.map(\.picture))")
+    stack.bringToFront(1)
+    check(stack.layers.map(\.picture) == [1, 0], "already in front: no change")
+    stack.bringToFront(0)
+    check(stack.layers.map(\.picture) == [0, 1] && pictureOnTop() == 1, "brought to the front")
+    check(stack.layers[1].frame == CGRect(x: 40, y: 30, width: 60, height: 50), "a picture keeps its place when restacked")
+
+    // The export: the pictures where they lie, the background between them, the
+    // annotations over them, at the sharpest picture's resolution.
+    let sharp = CapturedImage(data: makeImageData(width: 200, height: 100, dpi: 144, type: .png))!   // 100 × 50 pt
+    let plain = CapturedImage(data: makeImageData(width: 60, height: 50, dpi: 72, type: .png))!      // 60 × 50 pt
+    let pictures = LayerStack(frames: [left, right])
+    let white = CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)
+    let mark = Annotation(tool: .highlight, color: red, points: [CGPoint(x: 100, y: 0), CGPoint(x: 140, y: 82)])
+    if let data = AnnotationRenderer.export(pictures: [sharp, plain], stack: pictures, background: white,
+                                            annotations: [mark], area: pictures.bounds),
+       let out = CapturedImage(data: data), let image = out.fullSizeUncached() {
+        check(out.pointSize == CGSize(width: 208, height: 82) && out.pixelSize == CGSize(width: 416, height: 164),
+              "the whole at 2×, got \(out.pointSize) \(out.pixelSize)")
+        func at(_ x: CGFloat, _ y: CGFloat) -> (r: Double, g: Double, b: Double) {   // points from the bottom-left
+            pixel(image, x: Int(x * 2), y: Int((82 - y) * 2))
+        }
+        let gap = at(4, 4), first = at(50, 40), second = at(170, 40), marked = at(124, 40)
+        check(gap.r > 0.99 && gap.g > 0.99 && gap.b > 0.99, "the background in the gap, got \(gap)")
+        check(first.b > 0.8 && first.r < 0.3, "the first picture in its place, got \(first)")
+        check(second.b > 0.8 && second.r < 0.3, "the second in its place, got \(second)")
+        check(marked.r > 0.99 && marked.g < 0.7, "the highlight over the background, got \(marked)")
+    } else { check(false, "several pictures were not exported") }
+    // Cropped to a part of the whole.
+    if let data = AnnotationRenderer.export(pictures: [sharp, plain], stack: pictures, background: nil,
+                                            annotations: [], area: CGRect(x: 120, y: 10, width: 40, height: 30)),
+       let out = CapturedImage(data: data), let image = out.fullSizeUncached() {
+        check(out.pixelSize == CGSize(width: 80, height: 60), "a crop of the whole, got \(out.pixelSize)")
+        var bytes = [UInt8](repeating: 0, count: 80 * 60 * 4)
+        let canvas = CGContext(data: &bytes, width: 80, height: 60, bitsPerComponent: 8, bytesPerRow: 80 * 4,
+                               space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        canvas.draw(image, in: CGRect(x: 0, y: 0, width: 80, height: 60))
+        check(bytes[(30 * 80 + 4) * 4 + 3] == 0, "see-through in the gap without a background")
+        check(bytes[(30 * 80 + 60) * 4 + 3] == 255, "the second picture inside the crop")
+    } else { check(false, "a crop of several pictures was not exported") }
 }
 
 /// Cropping: the frame the user adjusts, and the export of the part it keeps.
@@ -161,11 +232,6 @@ private func testCropping(base: CapturedImage, red: CGColor, counter: Annotation
           "moving the frame stops at the edge of the picture")
     check(CropFrame.spanning(at(150, 90), at(-10, 50), inside: picture).rect == CGRect(x: 0, y: 50, width: 150, height: 40),
           "a frame dragged out in any direction stays inside the picture")
-
-    // Points have their origin at the bottom left, bitmaps at the top left.
-    check(CropFrame.pixelRect(of: CGRect(x: 10, y: 20, width: 50, height: 30),
-                              pointSize: CGSize(width: 200, height: 100), pixelSize: CGSize(width: 400, height: 200))
-          == CGRect(x: 20, y: 100, width: 100, height: 60), "a crop in points becomes a crop in pixels")
 
     // The export keeps only the frame's part of the picture, annotations included.
     let area = CGRect(x: 30, y: 30, width: 50, height: 40)

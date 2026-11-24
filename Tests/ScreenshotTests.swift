@@ -100,5 +100,11 @@ func testScreenshot() {
             }
         } else { check(false, "the pictures were not combined") }
         check(Collage.combining([], gap: 16) == nil, "nothing to combine")
+        // With a background chosen in the editor, it fills what lies between.
+        if let data = Collage.combining([sharp, plain], gap: 16, background: CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)),
+           let picture = CapturedImage(data: data)?.fullSizeUncached() {
+            let corner = pixel(picture, x: 2, y: 2)
+            check(corner.r > 0.99 && corner.g > 0.99 && corner.b > 0.99, "a white margin, got \(corner)")
+        } else { check(false, "the pictures were not combined on a background") }
     }
 }

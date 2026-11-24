@@ -31,9 +31,8 @@ if let index = CommandLine.arguments.firstIndex(of: "--window-shadow"), index + 
 }
 
 // Helper mode: combine several screenshots into one picture and exit; see `Collage`.
-if let index = CommandLine.arguments.firstIndex(of: "--combine"), index + 2 < CommandLine.arguments.count {
-    Collage.runHelper(output: CommandLine.arguments[index + 1],
-                      pictures: Array(CommandLine.arguments[(index + 2)...]))
+if let index = CommandLine.arguments.firstIndex(of: "--combine") {
+    Collage.runHelper(arguments: Array(CommandLine.arguments[(index + 1)...]))
 }
 
 // Helper mode: scrolling capture of one screen region; see `ScrollCaptureHelper`.
@@ -50,7 +49,7 @@ let editorDelegate: EditorProcessDelegate? = {
     guard let index = CommandLine.arguments.firstIndex(of: "--editor"),
           index + 2 < CommandLine.arguments.count else { return nil }
     return EditorProcessDelegate(imagePath: CommandLine.arguments[index + 1],
-                                 pinPath: CommandLine.arguments[index + 2])
+                                 pinPath: CommandLine.arguments[index + 2], arguments: CommandLine.arguments)
 }()
 if let editorDelegate = editorDelegate {
     application.delegate = editorDelegate

@@ -70,29 +70,32 @@ final class ScreenshotTaker {
     }
 
     /// Combines the picture files into one in a helper process and hands that to `done`,
-    /// by default to become a screenshot; one picture is handed on as it is. The files are
-    /// deleted. The demo of several screenshots comes in here with files of its own.
-    func combine(_ pictures: [URL], then done: ((URL) -> Void)? = nil) {
-        let done = done ?? { [weak self] file in self?.finish(file) }
+    /// by default to become a screenshot; one picture is handed on as it is. The pictures
+    /// go along as the parts of the whole, which the editor lays out again. The demo of
+    /// several screenshots comes in here with files of its own.
+    func combine(_ pictures: [URL], then done: ((URL, [CapturedImage.Part]) -> Void)? = nil) {
+        let done = done ?? { [weak self] file, parts in self?.finish(file, parts: parts) }
         guard pictures.count > 1 else {
-            if let picture = pictures.first { done(picture) }
+            if let picture = pictures.first { done(picture, []) }
             return
         }
+        let failed = { [weak self] in
+            pictures.forEach { try? FileManager.default.removeItem(at: $0) }
+            self?.onError?(L("error.combine"))
+        }
+        guard let frames = Collage.layout(of: pictures) else { return failed() }
+        let parts = zip(pictures, frames).map { CapturedImage.Part(file: $0, frame: $1) }
         let output = directory.appendingPathComponent("capture-\(UUID().uuidString).png")
         let helper = Process()
         helper.executableURL = Bundle.main.executableURL
-        helper.arguments = ["--combine", output.path] + pictures.map(\.path)
-        helper.terminationHandler = { [weak self] finished in
+        helper.arguments = ["--combine", output.path, Collage.argument(for: Settings.combinedBackground)]
+            + pictures.map(\.path)
+        helper.terminationHandler = { finished in
             DispatchQueue.main.async {
-                pictures.forEach { try? FileManager.default.removeItem(at: $0) }
-                if finished.terminationStatus == 0 { done(output) }
-                else { self?.onError?(L("error.combine")) }
+                if finished.terminationStatus == 0 { done(output, parts) } else { failed() }
             }
         }
-        do { try helper.run() } catch {
-            pictures.forEach { try? FileManager.default.removeItem(at: $0) }
-            onError?(L("error.combine"))
-        }
+        do { try helper.run() } catch { failed() }
     }
 
     /// Captures the whole screen at once. If a region or window selection is in
@@ -120,11 +123,12 @@ final class ScreenshotTaker {
         }
     }
 
-    /// Makes a screenshot of a picture taken another way (a scrolling capture).
-    func finish(_ file: URL) {
+    /// Makes a screenshot of a picture taken another way (a scrolling capture), or of
+    /// several combined, with the pictures it was made of.
+    func finish(_ file: URL, parts: [CapturedImage.Part] = []) {
         // No file means the user cancelled the selection.
         guard FileManager.default.fileExists(atPath: file.path),
-              let capture = CapturedImage(owningFile: file) else { return }
+              let capture = CapturedImage(owningFile: file, parts: parts) else { return }
         if Settings.copyAfterCapture { capture.copyToPasteboard() }
         if Settings.saveAfterCapture { save(capture) }
         onCaptured?(capture)

@@ -407,8 +407,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let copy = captureDirectory.appendingPathComponent("capture-\(UUID().uuidString).png")
                 return (try? FileManager.default.copyItem(at: file, to: copy)) == nil ? nil : copy
             }
-            screenshots.combine(copies) { [weak self] file in
-                if let capture = CapturedImage(owningFile: file) { self?.previews.show(capture) }
+            screenshots.combine(copies) { [weak self] file, parts in
+                if let capture = CapturedImage(owningFile: file, parts: parts) { self?.previews.show(capture) }
             }
         }
     }

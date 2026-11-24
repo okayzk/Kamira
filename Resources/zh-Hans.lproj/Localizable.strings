@@ -27,6 +27,16 @@
 "editor.zoom" = "放大（⌘+、⌘−、⌘0）";
 "editor.crop" = "裁剪（回车确认，Esc 取消）";
 "editor.moreColors" = "更多颜色…";
+"editor.background" = "图片之间的背景";
+"background.none" = "透明";
+"background.custom" = "自选颜色";
+"layer.name" = "第 %d 张图";
+"layer.bringToFront" = "移到最前";
+"layer.sendToBack" = "移到最后";
+"layer.moveLeft" = "向左移";
+"layer.moveRight" = "向右移";
+"layer.moveUp" = "向上移";
+"layer.moveDown" = "向下移";
 "color.red" = "红色";
 "color.yellow" = "黄色";
 "color.green" = "绿色";

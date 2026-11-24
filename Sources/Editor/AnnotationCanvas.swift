@@ -5,6 +5,10 @@ import AppKit
 /// dragged, reshaped by its handles, recoloured or deleted; double-clicking text edits it.
 /// After a crop the canvas shows only the part kept (`area`); the annotations keep their
 /// place on the whole picture, so undoing the crop brings back everything as it was.
+/// Several pictures (screenshots combined into one) each lie where the user drags them
+/// with the pointer and can be restacked from their menu; the canvas is the whole they
+/// make, with the background between them. The annotations lie over all of them and
+/// stay where they are drawn.
 final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     /// What a drag on empty space draws; nil is the pointer, which only selects.
     var tool: AnnotationTool? {
@@ -18,12 +22,30 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     private(set) var annotations: [Annotation] = [] { didSet { needsDisplay = true } }
     /// The annotation being dragged out right now.
     private var current: Annotation? { didSet { needsDisplay = true } }
-    /// Index into `annotations` of the selected one.
-    private var selected: Int? { didSet { needsDisplay = true } }
-    /// The part of the picture shown and exported, in image points: all of it until cropped.
-    private(set) var area: CGRect { didSet { needsDisplay = true } }
-    /// Called with the previous `area` when a crop, or undoing one, changed it.
+    /// Index into `annotations` of the selected one. (Not private, here and below where
+    /// marked: the several-pictures half of the canvas is in `AnnotationCanvas+Pictures`.)
+    var selected: Int? { didSet { needsDisplay = true } }
+    /// Where the pictures lie, bottom to top. Changed only by the canvas.
+    var stack: LayerStack { didSet { needsDisplay = true } }
+    /// What lies between several pictures; nil is see-through.
+    private(set) var background: CGColor? { didSet { needsDisplay = true } }
+    /// Called when the background changed, also by undoing.
+    var onBackgroundChange: ((CGColor?) -> Void)?
+    /// What a crop keeps, in image points; nil keeps everything.
+    private var crop: CGRect? { didSet { needsDisplay = true } }
+    var isCropped: Bool { crop != nil }
+    /// The whole as it was when a picture began to be dragged: what is shown holds still
+    /// until it is let go.
+    private var heldArea: CGRect?
+    /// The part shown and exported, in image points: the crop, or else the whole.
+    var area: CGRect { crop ?? heldArea ?? stack.bounds }
+    /// Called with the previous `area` when a crop, moving a picture, or undoing either changed it.
     var onAreaChange: ((_ previous: CGRect) -> Void)?
+    /// Index into `stack.layers` of the selected picture, while there are several. (Not private.)
+    var selectedLayer: Int? { didSet { needsDisplay = true } }
+    /// What assistive apps see of several pictures, one per picture, kept so that they
+    /// keep their place after an action. (Not private.)
+    lazy var pictureElements: [NSAccessibilityElement] = makePictureElements()
     /// The frame being adjusted while cropping; nil otherwise.
     private var cropFrame: CropFrame? {
         didSet {
@@ -44,49 +66,49 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         case cropHandle(Int)
         /// A new crop frame dragged out from `from`; a stray click puts `previous` back.
         case newCrop(from: CGPoint, previous: CropFrame)
+        /// The selected picture, which lay at `origin`.
+        case moveLayer(from: CGPoint, origin: CGPoint)
     }
     /// What the mouse is doing to the selected annotation or the crop frame right now.
     private var drag: Drag?
-    /// What undo brings back: the annotations and the crop together.
+    /// What undo brings back: the annotations, the crop, where the pictures lie and the
+    /// background, together.
     private struct Snapshot {
         var annotations: [Annotation]
-        var area: CGRect
+        var crop: CGRect?
+        var stack: LayerStack
+        var background: CGColor?
     }
     /// Earlier states, newest last; undo goes back one.
     private var history: [Snapshot] = []
     /// The annotation whose colour the last change set, so that dragging through the
     /// colour picker is one undo step rather than dozens.
     private var lastRecolored: Int?
+    /// The same for the background.
+    private var backgroundRecorded = false
     /// True while the text field holds an existing text annotation taken out for editing.
     private var editingExistingText = false
     /// How close, in view points, a click must be to count as on an annotation.
     private static let grabDistance: CGFloat = 6
 
-    private let imageSize: CGSize
-    private let baseImage: CGImage?
-    private let mosaic: CGImage?
+    /// The pictures as drawn on screen.
+    private let pictures: EditorPictures
     /// Live editor for the text tool; replaced by a text annotation when committed.
     private var textField: NSTextField?
+    var isTyping: Bool { textField != nil }
     private var textAnchor = CGPoint.zero
-    /// Image pixels per image point, to which a crop is rounded.
-    private let pixelDensity: CGFloat
-    /// View points per image point.
-    private var scale: CGFloat { bounds.width / area.width }
+    /// View points per image point. (Not private.)
+    var scale: CGFloat { bounds.width / area.width }
     /// How far the scroll view around the canvas is zoomed in. Handles and the distance
     /// that counts as a hit are divided by it, so they stay the same size on screen.
     private var zoom: CGFloat { enclosingScrollView?.magnification ?? 1 }
 
-    init(capture: CapturedImage, size: NSSize, color: CGColor) {
-        imageSize = capture.pointSize
-        area = CGRect(origin: .zero, size: capture.pointSize)
-        pixelDensity = capture.pixelSize.width / capture.pointSize.width
+    /// `pictures` lying at `frames`, shown `size` large.
+    init(pictures: [CapturedImage], frames: [CGRect], background: CGColor?, size: NSSize, color: CGColor) {
+        stack = LayerStack(frames: frames)
+        self.background = background
         self.color = color
-        // Only as many pixels as the canvas can show when zoomed in all the way (never
-        // more than the capture has); the export decodes the original itself.
-        let backing = NSScreen.underPointer?.backingScaleFactor ?? 2
-        let largestZoom = EditorZoom.steps[EditorZoom.steps.count - 1]
-        baseImage = capture.downsampled(maxPixel: max(size.width, size.height) * backing * largestZoom)
-        mosaic = AnnotationRenderer.mosaicImage(for: capture)
+        self.pictures = EditorPictures(pictures, viewScale: size.width / LayerStack(frames: frames).bounds.width)
         super.init(frame: NSRect(origin: .zero, size: size))
     }
 
@@ -106,13 +128,14 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         context.saveGState()
         // Drawn as the whole picture, shifted so that the part kept fills the view.
         context.translateBy(x: -area.minX * scale, y: -area.minY * scale)
-        if let baseImage = baseImage {
-            context.interpolationQuality = .high
-            context.draw(baseImage, in: CGRect(x: 0, y: 0, width: imageSize.width * scale,
-                                               height: imageSize.height * scale))
-        }
+        pictures.draw(stack, background: background, in: context, scale: scale)
         AnnotationRenderer.draw(annotations + (current.map { [$0] } ?? []), in: context,
-                                scale: scale, imageSize: imageSize, mosaic: mosaic)
+                                scale: scale, mosaic: pictures.mosaic(stack))
+        if let index = selectedLayer {
+            context.setStrokeColor(NSColor.controlAccentColor.cgColor)
+            context.setLineWidth(2 / zoom)
+            context.stroke(stack.layers[index].frame.applying(CGAffineTransform(scaleX: scale, y: scale)))
+        }
         if let index = selected { drawSelection(of: annotations[index], in: context) }
         if let frame = cropFrame { drawCrop(frame, in: context) }
         context.restoreGState()
@@ -171,10 +194,27 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         }
     }
 
-    /// Remembers the present state so that `undo()` can come back to it.
-    private func record() {
-        history.append(Snapshot(annotations: annotations, area: area))
+    /// Remembers the present state so that `undo()` can come back to it. (Not private.)
+    func record() {
+        history.append(Snapshot(annotations: annotations, crop: crop, stack: stack, background: background))
         lastRecolored = nil
+        backgroundRecorded = false
+    }
+
+    /// Sets what lies between several pictures. While `continuing` (the colour panel
+    /// being dragged through), one undo step covers all of it.
+    func applyBackground(_ newBackground: CGColor?, continuing: Bool = false) {
+        if !(continuing && backgroundRecorded) {
+            record()
+            backgroundRecorded = continuing
+        }
+        background = newBackground
+        onBackgroundChange?(newBackground)
+    }
+
+    /// The topmost picture under `point`, only while there are several to tell apart. (Not private.)
+    func layer(at point: CGPoint) -> Int? {
+        stack.isSeveral ? stack.topmost(at: point) : nil
     }
 
     /// The topmost annotation under `point` (image points).
@@ -228,16 +268,19 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
             }
             return
         }
-        (handle(at: point) != nil || annotation(at: point) != nil ? NSCursor.openHand : restingCursor).set()
+        let grabs = handle(at: point) != nil || annotation(at: point) != nil || (tool == nil && layer(at: point) != nil)
+        (grabs ? NSCursor.openHand : restingCursor).set()
     }
 
     // MARK: Drawing gestures
 
-    /// Event location in image points, kept inside what is shown.
-    private func imagePoint(_ event: NSEvent) -> CGPoint {
+    /// Event location in image points, kept inside what is shown unless `anywhere`: a
+    /// picture can be dragged beyond the edge, and the whole grows to take it in. (Not private.)
+    func imagePoint(_ event: NSEvent, anywhere: Bool = false) -> CGPoint {
         let point = convert(event.locationInWindow, from: nil)
-        return CGPoint(x: area.minX + min(max(point.x, 0), bounds.width) / scale,
-                       y: area.minY + min(max(point.y, 0), bounds.height) / scale)
+        let x = anywhere ? point.x : min(max(point.x, 0), bounds.width)
+        let y = anywhere ? point.y : min(max(point.y, 0), bounds.height)
+        return CGPoint(x: area.minX + x / scale, y: area.minY + y / scale)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -255,6 +298,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
             drag = .handle(handle)
             return
         }
+        selectedLayer = nil
         if let index = annotation(at: point) {
             selected = index
             if tool != annotations[index].tool {
@@ -270,7 +314,16 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
             return
         }
         selected = nil
-        guard let tool = tool else { return }
+        guard let tool = tool else {
+            // The pointer on one of several pictures picks it up.
+            if let index = layer(at: point) {
+                selectedLayer = index
+                record()
+                heldArea = area
+                drag = .moveLayer(from: imagePoint(event, anywhere: true), origin: stack.layers[index].frame.origin)
+            }
+            return
+        }
         switch tool {
         case .text:
             // A click that just finished one text does not immediately start another.
@@ -289,6 +342,9 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         dragPoint = point
         if isCropping {
             cropMouseDragged(to: point)
+        } else if let index = selectedLayer, case .moveLayer(let from, let origin)? = drag {
+            let to = imagePoint(event, anywhere: true)
+            stack.move(index, to: CGPoint(x: origin.x + to.x - from.x, y: origin.y + to.y - from.y))
         } else if let index = selected, case .move(let from, let original)? = drag {
             annotations[index] = original.moved(by: CGVector(dx: point.x - from.x, dy: point.y - from.y),
                                                 keepingInside: area)
@@ -340,6 +396,12 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
                annotations[index].points == original.points {
                 history.removeLast()
             }
+            if case .moveLayer(_, let origin) = drag, let index = selectedLayer, let held = heldArea {
+                if stack.layers[index].frame.origin == origin { history.removeLast() }
+                // The whole takes in where the picture was put.
+                heldArea = nil
+                if area != held { onAreaChange?(held) }
+            }
             return
         }
         guard let annotation = current else { return }
@@ -381,13 +443,18 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
             cancelCrop()
         } else if let previous = history.popLast() {
             selected = nil
+            selectedLayer = nil
             lastRecolored = nil
+            backgroundRecorded = false
+            let old = area
             annotations = previous.annotations
-            if previous.area != area {
-                let old = area
-                area = previous.area
-                onAreaChange?(old)
+            crop = previous.crop
+            stack = previous.stack
+            if previous.background != background {
+                background = previous.background
+                onBackgroundChange?(background)
             }
+            if area != old { onAreaChange?(old) }
         }
     }
 
@@ -398,6 +465,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     func beginCrop() {
         commitText()
         selected = nil
+        selectedLayer = nil
         current = nil
         drag = nil
         cropFrame = CropFrame(rect: area)
@@ -408,7 +476,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         guard let frame = cropFrame else { return }
         cropFrame = nil
         drag = nil
-        let d = pixelDensity
+        let d = pictures.pixelDensity
         let r = frame.rect
         let minX = (r.minX * d).rounded() / d, maxX = (r.maxX * d).rounded() / d
         let minY = (r.minY * d).rounded() / d, maxY = (r.maxY * d).rounded() / d
@@ -417,7 +485,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
               kept != area else { return }
         record()
         let old = area
-        area = kept
+        crop = kept
         onAreaChange?(old)
     }
 
