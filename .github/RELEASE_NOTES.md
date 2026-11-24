@@ -1,21 +1,25 @@
-# V0.3.0 Norma
+# V0.4.0 Pleiades
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/okayzk/Kamira/main/assets/logo.png" alt="Kamira" width="120" height="120" />
-  <h1 style="margin: 12px 0 6px;">Kamira V0.3.0</h1>
+  <h1 style="margin: 12px 0 6px;">Kamira V0.4.0</h1>
   <p><em>Catch the screen, keep it light.</em></p>
 </div>
 
 ### Changelog
-1. **Line Tool**: The annotation editor has a line tool next to the arrow, for straight lines without a head.
-2. **Shift for Straight Lines, Squares and Circles**: Holding Shift keeps arrows and lines horizontal, vertical or at 45°, rectangles square and ellipses round, both while drawing them and while dragging their handles.
-3. **Copied Image Files**: Pin Clipboard Image and Annotate Clipboard Image now open an image file copied in Finder, quickly and without a large memory cost, even for a very large picture.
-4. **Lighter Area Selection**: Choosing an area to record or to capture while scrolling no longer drives memory use up by hundreds of megabytes on large or multiple screens.
+1. **Capture Several**: Select one area or window after another, then press Esc: they come out as one picture, laid out in rows.
+2. **Crop in the Editor**: The annotation editor crops the picture, and its window shrinks to the part kept.
+3. **Arrange Several Pictures**: A picture made with Capture Several comes apart again in the editor, so each part can be dragged, brought to the front or sent to the back, with a background of your choice between them.
+4. **Add a Screenshot in the Editor**: A button in the editor takes another screenshot and puts it beside the picture.
+5. **Return to Copy**: In the editor, Return copies the result, as the Copy button does.
+6. **MIT License**: Kamira is now released under the MIT License instead of GPL-3.0.
 
 ### 更新日志
-1. **直线工具**：标注工具栏在箭头旁边新增直线，用来画不带箭头的直线。
-2. **按住 Shift 画规整图形**：按住 Shift，箭头和直线只能水平、垂直或成 45°，矩形会画成正方形，椭圆会画成正圆；拖动端点和边角时也一样。
-3. **支持复制的图片文件**：在访达里复制图片文件后，“贴上剪贴板图片”和“标注剪贴板图片”可以直接打开它；图片再大也打开得很快，不会占用大量内存。
-4. **框选区域更省内存**：录屏或长截图框选区域时，在大屏或多块屏幕上，内存不再一下涨到几百 MB。
+1. **截取多张**：一块接一块地框选区域或窗口，按 Esc 后拼成一张图，按行自动排好。
+2. **编辑器裁剪**：标注编辑器可以裁剪图片，裁完窗口随之缩到留下的大小。
+3. **编辑器里摆放多张图**：截取多张得到的图，在编辑器里会重新分成一张张，可以随意拖动、调整上下层，还能选图片之间的背景色。
+4. **编辑器里追加截图**：在编辑器里点一下按钮就能再截一张，新图自动放在旁边。
+5. **回车复制**：在编辑器里按回车，和点“复制”一样。
+6. **改用 MIT 许可证**：Kamira 不再采用 GPL-3.0，改为 MIT 许可证发布。
 
 > https://github.com/okayzk/Kamira

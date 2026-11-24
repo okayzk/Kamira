@@ -78,16 +78,16 @@ xattr -dr com.apple.quarantine "/Applications/Kamira.app"
 </tr>
 <tr>
   <td colspan="2" align="center">
-    <img src="assets/en/panel.png" alt="The Quick Panel: Area, Window, Screen, Scrolling, Text, Record, Pin" width="620" /><br/>
+    <img src="assets/en/panel.png" alt="The Quick Panel: Area, Window, Screen, Several, Scrolling, Text, Record, Pin" width="620" /><br/>
     <sub><b>Quick Panel (All in One)</b><br/>⇧⌘5 brings up every action in one bar.</sub>
   </td>
 </tr>
 </table>
 
-- **Screenshots**: capture an area, a window, or the whole screen and copy it automatically to the clipboard. Optionally save captures to a folder of your choice with custom file naming.
+- **Screenshots**: capture an area, a window, or the whole screen and copy it automatically to the clipboard. Optionally save captures to a folder of your choice with custom file naming. Capture several in a row and press Esc to get them as one picture.
 - **Floating preview**: screenshots and recordings appear as preview cards, with an optional auto-dismiss timer. Several cards stack into a single pile with only the newest in full view, and spread out when you move the pointer over them, so a run of screenshots never takes over the screen the way it can in CleanShot X.
 - **Pins**: keep a screenshot above other windows for reference. It becomes translucent when you move the pointer over it.
-- **Annotation**: add arrows, lines, shapes, freehand strokes, highlights, text, numbered markers, and pixelation. Hold Shift for level lines, squares, and circles. Zoom in to edit fine details.
+- **Annotation**: add arrows, lines, shapes, freehand strokes, highlights, text, numbered markers, and pixelation. Hold Shift for level lines, squares, and circles. Zoom in to edit fine details, or crop. Several screenshots can be dragged apart, restacked and set on a background of your choice, and another can be added from the editor. Return copies.
 - **Scrolling capture**: select a region and scroll manually to stitch a long image with a live preview. Overlapping content in consecutive frames is matched while fixed headers, sidebars, and similar elements are excluded from matching. Stitching has been verified on a test page with translucent Liquid Glass overlays.
 - **Text recognition (OCR)**: select an area to recognise and copy Chinese and English text entirely on your Mac, with no network connection needed. Text from multiple columns on the same line stays together, useful for tables and code.
 - **Recording**: record an area, a window, or the whole screen as video or GIF, with microphone and system audio available for video recordings.
