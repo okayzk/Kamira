@@ -2,13 +2,14 @@ import Carbon.HIToolbox
 
 /// The actions that can have a global shortcut, in the order the settings list them.
 enum ShortcutAction: String, CaseIterable {
-    case area, window, screen, scrolling, text, record, pin, panel
+    case area, window, screen, several, scrolling, text, record, pin, panel
 
     var title: String {
         switch self {
         case .area: return L("menu.captureArea")
         case .window: return L("menu.captureWindow")
         case .screen: return L("menu.captureScreen")
+        case .several: return L("menu.captureSeveral")
         case .scrolling: return L("menu.scrollingCapture")
         case .text: return L("menu.recognizeText")
         case .record: return L("menu.recordScreen")

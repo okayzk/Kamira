@@ -40,6 +40,7 @@
 "menu.captureArea" = "Capture Area";
 "menu.captureWindow" = "Capture Window";
 "menu.captureScreen" = "Capture Screen";
+"menu.captureSeveral" = "Capture Several";
 "menu.scrollingCapture" = "Scrolling Capture";
 "menu.recognizeText" = "Recognise Text";
 "menu.recordScreen" = "Record Screen";
@@ -53,6 +54,7 @@
 "palette.area" = "Area";
 "palette.window" = "Window";
 "palette.screen" = "Screen";
+"palette.several" = "Several";
 "palette.scrolling" = "Scrolling";
 "palette.text" = "Text";
 "palette.record" = "Record";
@@ -71,6 +73,7 @@
 "error.noClipboardImage.annotate" = "There is no image on the clipboard. Take a screenshot first, then choose Annotate.";
 "error.noClipboardImage.pin" = "There is no image on the clipboard. Take a screenshot first, then choose Pin.";
 "error.screenshotTool" = "The system screenshot tool could not be started:\n%@";
+"error.combine" = "The screenshots could not be put together into one picture.";
 "error.textRecognition" = "Text recognition could not be started:\n%@";
 "error.recording" = "Recording failed:\n%@";
 "error.editor" = "The annotation editor could not be opened:\n%@";

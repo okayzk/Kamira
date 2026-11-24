@@ -40,6 +40,7 @@
 "menu.captureArea" = "截取区域";
 "menu.captureWindow" = "截取窗口";
 "menu.captureScreen" = "截取全屏";
+"menu.captureSeveral" = "截取多张";
 "menu.scrollingCapture" = "滚动长截图";
 "menu.recognizeText" = "识别文字";
 "menu.recordScreen" = "录屏";
@@ -53,6 +54,7 @@
 "palette.area" = "区域";
 "palette.window" = "窗口";
 "palette.screen" = "全屏";
+"palette.several" = "多张";
 "palette.scrolling" = "长截图";
 "palette.text" = "文字";
 "palette.record" = "录屏";
@@ -71,6 +73,7 @@
 "error.noClipboardImage.annotate" = "剪贴板里没有图片。请先截图，再选择标注。";
 "error.noClipboardImage.pin" = "剪贴板里没有图片。请先截图，再选择贴图。";
 "error.screenshotTool" = "无法启动系统截图工具：\n%@";
+"error.combine" = "这几张截图没能拼成一张。";
 "error.textRecognition" = "无法启动文字识别：\n%@";
 "error.recording" = "录屏失败：\n%@";
 "error.editor" = "无法打开标注编辑器：\n%@";

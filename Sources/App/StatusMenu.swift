@@ -36,6 +36,7 @@ final class StatusMenu: NSObject {
         shortcutItems[.area] = add(L("menu.captureArea"), .action(.area))
         shortcutItems[.window] = add(L("menu.captureWindow"), .action(.window))
         shortcutItems[.screen] = add(L("menu.captureScreen"), .action(.screen))
+        shortcutItems[.several] = add(L("menu.captureSeveral"), .action(.several))
         shortcutItems[.scrolling] = add(L("menu.scrollingCapture"), .action(.scrolling))
         shortcutItems[.text] = add(L("menu.recognizeText"), .action(.text))
         menu.addItem(.separator())

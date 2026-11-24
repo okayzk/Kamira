@@ -6,7 +6,7 @@ import AppKit
 // Helper modes end with the app that started them (see `ParentWatch`). Two are left to
 // finish instead, as they hold the user's work: an annotation editor, and a recording
 // being made into a GIF.
-let stoppedWithApp = ["--ocr", "--ocr-warm-up", "--window-shadow", "--scroll-capture", "--desktop-cover", "--quicklook"]
+let stoppedWithApp = ["--ocr", "--ocr-warm-up", "--window-shadow", "--combine", "--scroll-capture", "--desktop-cover", "--quicklook"]
 if CommandLine.arguments.contains(where: stoppedWithApp.contains) { ParentWatch.start() }
 
 // Helper mode: convert a finished recording to a GIF and exit, without any UI.
@@ -28,6 +28,12 @@ if CommandLine.arguments.contains("--ocr-warm-up") { TextRecognizer.runWarmUp() 
 if let index = CommandLine.arguments.firstIndex(of: "--window-shadow"), index + 1 < CommandLine.arguments.count {
     let level = index + 2 < CommandLine.arguments.count ? Int(CommandLine.arguments[index + 2]) ?? 1 : 1
     WindowShadow.runHelper(image: CommandLine.arguments[index + 1], level: level)
+}
+
+// Helper mode: combine several screenshots into one picture and exit; see `Collage`.
+if let index = CommandLine.arguments.firstIndex(of: "--combine"), index + 2 < CommandLine.arguments.count {
+    Collage.runHelper(output: CommandLine.arguments[index + 1],
+                      pictures: Array(CommandLine.arguments[(index + 2)...]))
 }
 
 // Helper mode: scrolling capture of one screen region; see `ScrollCaptureHelper`.

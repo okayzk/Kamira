@@ -41,6 +41,9 @@ enum Demo: Equatable {
     case preview(URL)
     case pin(URL)
     case edit(URL, mode: String?)
+    /// `--demo-several <image>`, once per picture: the preview of those pictures combined,
+    /// as after Capture Several.
+    case several([URL])
 
     private static let editorModes = ["--demo-draw", "--demo-copy", "--demo-move", "--demo-zoom", "--demo-crop"]
 
@@ -96,6 +99,9 @@ enum Demo: Equatable {
             default: break
             }
         }
+        let several = arguments.indices.dropLast().filter { arguments[$0] == "--demo-several" }
+            .map { URL(fileURLWithPath: arguments[$0 + 1]) }
+        if !several.isEmpty { demos.append(.several(several)) }
         return demos
     }
 }

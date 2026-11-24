@@ -39,6 +39,9 @@ func testApp() {
         check(Demo.parse(["K", "--demo-edit", "/e.png", "--demo-draw", "/d.png"])
               == [.edit(URL(fileURLWithPath: "/e.png"), mode: nil), .edit(URL(fileURLWithPath: "/d.png"), mode: "--demo-draw")],
               "the editor, plain and drawing")
+        check(Demo.parse(["K", "--demo-several", "/a.png", "--demo-pin", "/p.png", "--demo-several", "/b.png"])
+              == [.pin(URL(fileURLWithPath: "/p.png")), .several([URL(fileURLWithPath: "/a.png"), URL(fileURLWithPath: "/b.png")])],
+              "several pictures make one demo, after the single ones")
         check(Demo.parse(["K", "--demo-preview"]).isEmpty, "a picture demo needs its file")
     }
 

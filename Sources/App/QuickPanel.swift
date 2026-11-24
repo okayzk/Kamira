@@ -10,6 +10,7 @@ final class QuickPanel: NSObject {
         (L("palette.area"), "palette.area", "rectangle.dashed", .area),
         (L("palette.window"), "palette.window", "macwindow", .window),
         (L("palette.screen"), "palette.screen", "display", .screen),
+        (L("palette.several"), "palette.several", "square.grid.2x2", .several),
         (L("palette.scrolling"), "palette.scrolling", "arrow.up.and.down", .scrolling),
         (L("palette.text"), "palette.text", "text.viewfinder", .text),
         (L("palette.record"), "palette.record", "record.circle", .record),

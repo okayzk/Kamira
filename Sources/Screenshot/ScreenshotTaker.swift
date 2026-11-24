@@ -13,19 +13,98 @@ final class ScreenshotTaker {
     private let directory: URL
     /// The system screenshot tool while it is waiting for the user to select something.
     private var interactiveCapture: Process?
+    /// While several screenshots are being taken (`captureSeveral`), the pictures so far.
+    private var several: [URL]?
+    /// Keeps the desktop icons covered for the whole of `captureSeveral`, not shot by shot.
+    private var severalCover: DesktopCoverSession?
+    /// Set when the Capture Screen shortcut ends a selection of `captureSeveral`: the
+    /// screen becomes the next picture instead of the end.
+    private var severalTakesScreen = false
 
     init(directory: URL) {
         self.directory = directory
     }
 
     // Both interactive modes are the system's own: Space switches between dragging a
-    // region and picking a window, in either direction.
-    func captureRegion() { captureInteractively(["-i", "-x"]) }
-    func captureWindow() { captureInteractively(["-i", "-W", "-x"]) }
+    // region and picking a window, in either direction. While several screenshots are
+    // being taken, the next selection is theirs.
+    func captureRegion() { if several == nil { captureInteractively(["-i", "-x"]) } }
+    func captureWindow() { if several == nil { captureInteractively(["-i", "-W", "-x"]) } }
+
+    /// Several screenshots in a row, combined into one. The system's selection comes back
+    /// as soon as a picture is taken, until Esc; then the pictures are laid side by side
+    /// (`Collage`) and the result is an ordinary screenshot. One picture stays as it is.
+    func captureSeveral() {
+        guard several == nil, interactiveCapture?.isRunning != true else { return }
+        several = []
+        let cover = Settings.hideDesktopIcons ? DesktopCoverSession() : nil
+        severalCover = cover
+        if let cover = cover {
+            cover.start { [weak self] in self?.captureNextOfSeveral() }
+        } else {
+            captureNextOfSeveral()
+        }
+    }
+
+    private func captureNextOfSeveral() {
+        captureInteractively(["-i", "-x"], hidingDesktopIcons: false) { [weak self] file in
+            guard let self = self else { return }
+            if FileManager.default.fileExists(atPath: file.path) {
+                self.several?.append(file)
+                self.captureNextOfSeveral()
+            } else if self.severalTakesScreen {
+                self.severalTakesScreen = false
+                self.capture(["-x"], interactive: false, hidingDesktopIcons: false) { [weak self] screen in
+                    if FileManager.default.fileExists(atPath: screen.path) { self?.several?.append(screen) }
+                    self?.captureNextOfSeveral()
+                }
+            } else {
+                // Esc: the pictures so far become one screenshot.
+                let pictures = self.several ?? []
+                self.several = nil
+                self.severalCover?.stop()
+                self.severalCover = nil
+                self.combine(pictures)
+            }
+        }
+    }
+
+    /// Combines the picture files into one in a helper process and hands that to `done`,
+    /// by default to become a screenshot; one picture is handed on as it is. The files are
+    /// deleted. The demo of several screenshots comes in here with files of its own.
+    func combine(_ pictures: [URL], then done: ((URL) -> Void)? = nil) {
+        let done = done ?? { [weak self] file in self?.finish(file) }
+        guard pictures.count > 1 else {
+            if let picture = pictures.first { done(picture) }
+            return
+        }
+        let output = directory.appendingPathComponent("capture-\(UUID().uuidString).png")
+        let helper = Process()
+        helper.executableURL = Bundle.main.executableURL
+        helper.arguments = ["--combine", output.path] + pictures.map(\.path)
+        helper.terminationHandler = { [weak self] finished in
+            DispatchQueue.main.async {
+                pictures.forEach { try? FileManager.default.removeItem(at: $0) }
+                if finished.terminationStatus == 0 { done(output) }
+                else { self?.onError?(L("error.combine")) }
+            }
+        }
+        do { try helper.run() } catch {
+            pictures.forEach { try? FileManager.default.removeItem(at: $0) }
+            onError?(L("error.combine"))
+        }
+    }
 
     /// Captures the whole screen at once. If a region or window selection is in
-    /// progress, this replaces it, so the shortcut also works from inside a selection.
+    /// progress, this replaces it, so the shortcut also works from inside a selection;
+    /// while taking several, the screen is the next of them.
     func captureScreen() {
+        if several != nil {
+            guard interactiveCapture?.isRunning == true else { return }
+            severalTakesScreen = true
+            interactiveCapture?.terminate()
+            return
+        }
         interactiveCapture?.terminate()
         interactiveCapture = nil
         capture(["-x"], interactive: false)
@@ -34,6 +113,7 @@ final class ScreenshotTaker {
     /// Lets the user select a region or window as for a screenshot, and hands the
     /// picture's file over instead of making a screenshot of it. The desktop icons stay.
     func selectArea(then completion: @escaping (URL) -> Void) {
+        guard several == nil else { return }
         capture(["-i", "-x"], interactive: true, hidingDesktopIcons: false) { file in
             guard FileManager.default.fileExists(atPath: file.path) else { return }
             completion(file)
@@ -53,19 +133,23 @@ final class ScreenshotTaker {
     /// A region or window screenshot with the window shadow the user chose. The system
     /// tool can only draw its own wide shadow or none (`-o`); the sizes in between are
     /// added afterwards by a helper process, which leaves anything but a window capture alone.
-    private func captureInteractively(_ arguments: [String]) {
+    /// The picture's file goes to `done`, by default to become a screenshot.
+    private func captureInteractively(_ arguments: [String], hidingDesktopIcons: Bool = true,
+                                      then done: ((URL) -> Void)? = nil) {
         let level = Settings.windowShadowLevel
-        capture(arguments + (level == WindowShadowLevel.system ? [] : ["-o"]), interactive: true) { [weak self] file in
+        let done = done ?? { [weak self] file in self?.finish(file) }
+        capture(arguments + (level == WindowShadowLevel.system ? [] : ["-o"]), interactive: true,
+                hidingDesktopIcons: hidingDesktopIcons) { file in
             guard level > 0, level < WindowShadowLevel.system, FileManager.default.fileExists(atPath: file.path) else {
-                self?.finish(file)
+                done(file)
                 return
             }
             let helper = Process()
             helper.executableURL = Bundle.main.executableURL
             helper.arguments = ["--window-shadow", file.path, String(level)]
-            helper.terminationHandler = { _ in DispatchQueue.main.async { self?.finish(file) } }
+            helper.terminationHandler = { _ in DispatchQueue.main.async { done(file) } }
             // Without the helper the capture is still good, only without a shadow.
-            do { try helper.run() } catch { self?.finish(file) }
+            do { try helper.run() } catch { done(file) }
         }
     }
 

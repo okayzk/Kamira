@@ -163,6 +163,7 @@ func testShared() {
         check(ShortcutAction.screen.defaultShortcut?.display == "⇧⌘3", "default for the screen")
         check(ShortcutAction.panel.defaultShortcut?.display == "⇧⌘5", "default for the Quick Panel")
         check(ShortcutAction.record.defaultShortcut == nil, "recording has no default")
+        check(ShortcutAction.several.defaultShortcut == nil, "several screenshots have no default")
         // The welcome window asks for the system's to be switched off while any shortcut in use is taken.
         let systemOn = [SystemHotKey(keyCode: 21, modifiers: UInt32(shiftKey | cmdKey), enabled: true)]
         let systemOff = [SystemHotKey(keyCode: 21, modifiers: UInt32(shiftKey | cmdKey), enabled: false)]

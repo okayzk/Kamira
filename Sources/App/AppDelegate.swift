@@ -132,6 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .area: captureRegion()
         case .window: captureWindow()
         case .screen: captureScreen()
+        case .several: captureSeveral()
         case .scrolling: captureScrolling()
         case .text: captureText()
         case .record: recordScreen()
@@ -171,6 +172,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         hidePalette()
         screenshots.captureScreen()
+    }
+    private func captureSeveral() {
+        hidePalette()
+        screenshots.captureSeveral()
     }
 
     private func configureScreenshots() {
@@ -395,6 +400,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let capture = demoCapture(file) { pins.add(capture) }
         case let .edit(file, mode):
             if let capture = demoCapture(file) { editors.open(capture, demo: mode) }
+        case .several(let files):
+            // Copies, since combining deletes the pictures; shown without being copied or saved.
+            try? FileManager.default.createDirectory(at: captureDirectory, withIntermediateDirectories: true)
+            let copies = files.compactMap { file -> URL? in
+                let copy = captureDirectory.appendingPathComponent("capture-\(UUID().uuidString).png")
+                return (try? FileManager.default.copyItem(at: file, to: copy)) == nil ? nil : copy
+            }
+            screenshots.combine(copies) { [weak self] file in
+                if let capture = CapturedImage(owningFile: file) { self?.previews.show(capture) }
+            }
         }
     }
 
