@@ -107,8 +107,9 @@ enum AnnotationRenderer {
         return 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2] > 0.7
     }
 
-    /// Burns the annotations into the capture at full resolution and returns PNG bytes.
-    static func export(capture: CapturedImage, annotations: [Annotation]) -> Data? {
+    /// Burns the annotations into the capture at full resolution and returns PNG bytes:
+    /// all of it, or only `area` (image points) if it was cropped.
+    static func export(capture: CapturedImage, annotations: [Annotation], area: CGRect? = nil) -> Data? {
         guard let image = capture.fullSizeUncached() else { return nil }
         let bounds = CGRect(x: 0, y: 0, width: image.width, height: image.height)
         let sRGB = CGColorSpace(name: CGColorSpace.sRGB)!
@@ -123,7 +124,13 @@ enum AnnotationRenderer {
         let scale = CGFloat(image.width) / capture.pointSize.width
         draw(annotations, in: context, scale: scale, imageSize: capture.pointSize,
              mosaic: mosaicImage(for: capture))
-        guard let result = context.makeImage() else { return nil }
+        guard var result = context.makeImage() else { return nil }
+        if let area = area, area != CGRect(origin: .zero, size: capture.pointSize) {
+            let pixels = CropFrame.pixelRect(of: area, pointSize: capture.pointSize,
+                                             pixelSize: CGSize(width: image.width, height: image.height))
+            guard let cropped = result.cropping(to: pixels) else { return nil }
+            result = cropped
+        }
 
         let out = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(

@@ -42,7 +42,7 @@ enum Demo: Equatable {
     case pin(URL)
     case edit(URL, mode: String?)
 
-    private static let editorModes = ["--demo-draw", "--demo-copy", "--demo-move", "--demo-zoom"]
+    private static let editorModes = ["--demo-draw", "--demo-copy", "--demo-move", "--demo-zoom", "--demo-crop"]
 
     /// Whether this is a demo run at all, which keeps the first-start welcome away.
     static func isAny(_ arguments: [String]) -> Bool {

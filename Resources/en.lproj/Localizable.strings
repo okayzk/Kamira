@@ -25,6 +25,7 @@
 "editor.close" = "Close (Esc)";
 "editor.move" = "Drag to Move";
 "editor.zoom" = "Zoom (⌘+, ⌘−, ⌘0)";
+"editor.crop" = "Crop (Return to apply, Esc to cancel)";
 "editor.moreColors" = "More Colours…";
 "color.red" = "Red";
 "color.yellow" = "Yellow";

@@ -1,7 +1,7 @@
 import AppKit
 
-/// The editor's floating Liquid Glass tool bar: undo, the colour, the tools, zoom, and
-/// the ways out (pin, save, close, copy). It tells the editor what was chosen.
+/// The editor's floating Liquid Glass tool bar: undo, the colour, the tools, crop, zoom,
+/// and the ways out (pin, save, close, copy). It tells the editor what was chosen.
 final class EditorToolBar: NSObject {
     /// Quick colour choices: red, yellow, green, blue, black, white.
     static let palette: [CGColor] = [
@@ -20,6 +20,7 @@ final class EditorToolBar: NSObject {
     var onColor: ((CGColor) -> Void)?
     /// The tool chosen; nil is the pointer, which selects.
     var onTool: ((AnnotationTool?) -> Void)?
+    var onCrop: (() -> Void)?
     var onZoom: (() -> Void)?
     var onPin: (() -> Void)?
     var onSave: (() -> Void)?
@@ -29,6 +30,7 @@ final class EditorToolBar: NSObject {
     /// The colour new annotations get, the first quick colour to begin with.
     private(set) var color = EditorToolBar.palette[0]
     private var zoomButton = NSButton()
+    private var cropButton = NSButton()
     private let colorButton = NSButton()
     private let toolPicker = NSSegmentedControl()
     private var colorMenu: NSMenu?
@@ -71,12 +73,13 @@ final class EditorToolBar: NSObject {
         copy.setAccessibilityIdentifier("editor.copy")
 
         zoomButton = iconButton("plus.magnifyingglass", L("editor.zoom"), "editor.zoom", #selector(zoomClicked))
+        cropButton = iconButton("crop", L("editor.crop"), "editor.crop", #selector(cropClicked))
         // The window has no title bar, so the bar also carries the way to close it.
         let row = DraggableRow(views: [
             iconButton("arrow.uturn.backward", L("action.undo"), "editor.undo", #selector(undoClicked)),
             colorButton,
             separator(), toolPicker, separator(),
-            zoomButton,
+            cropButton, zoomButton,
             iconButton("pin", L("action.pin"), "editor.pin", #selector(pinClicked)),
             iconButton("square.and.arrow.down", L("action.save"), "editor.save", #selector(saveClicked)),
             iconButton("xmark", L("editor.close"), "editor.close", #selector(closeClicked)),
@@ -104,7 +107,15 @@ final class EditorToolBar: NSObject {
         zoomButton.image = Self.symbol(atLargest ? "1.magnifyingglass" : "plus.magnifyingglass", L("editor.zoom"))
     }
 
+    /// While cropping the crop button is tinted, as a chosen tool is, and no tool is chosen.
+    func showCropping(_ cropping: Bool, tool: AnnotationTool?) {
+        cropButton.contentTintColor = cropping ? .controlAccentColor : .labelColor
+        // Setting `selectedSegment` to -1 leaves the segment chosen; unselecting it does not.
+        if cropping { toolPicker.setSelected(false, forSegment: toolPicker.selectedSegment) } else { show(tool) }
+    }
+
     @objc private func toolChanged() { onTool?(AnnotationTool(rawValue: toolPicker.selectedSegment - 1)) }
+    @objc private func cropClicked() { onCrop?() }
     @objc private func undoClicked() { onUndo?() }
     @objc private func zoomClicked() { onZoom?() }
     @objc private func pinClicked() { onPin?() }

@@ -11,6 +11,6 @@ mkdir -p build
   Sources/ScrollCapture/ScrollStitcher.swift Sources/ScrollCapture/ScrollPreviewStrip.swift Sources/ScrollCapture/ScrollPreviewLayout.swift \
   Sources/TextRecognition/TextRecognizer.swift Sources/Selection/SelectionShade.swift \
   Sources/Screenshot/WindowShadow.swift Sources/Shared/WindowShadowLevel.swift \
-  Sources/Editor/Annotation.swift Sources/Editor/AnnotationTool.swift Sources/Editor/AnnotationRenderer.swift Sources/Editor/EditorZoom.swift \
+  Sources/Editor/Annotation.swift Sources/Editor/AnnotationTool.swift Sources/Editor/AnnotationRenderer.swift Sources/Editor/EditorZoom.swift Sources/Editor/CropFrame.swift \
   Tests/*.swift -o build/tests
 build/tests

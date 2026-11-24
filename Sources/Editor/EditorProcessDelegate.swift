@@ -37,5 +37,7 @@ final class EditorProcessDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--demo-move") { editor.runDemo(thenCopy: false, thenEdit: true) }
         // `--demo-zoom` looks at the samples from close up.
         if CommandLine.arguments.contains("--demo-zoom") { editor.runDemo(thenCopy: false, thenEdit: true, zoom: 4) }
+        // `--demo-crop` leaves a crop frame over the samples, ready to be kept.
+        if CommandLine.arguments.contains("--demo-crop") { editor.runDemo(thenCopy: false, thenCrop: true) }
     }
 }

@@ -24,16 +24,15 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
     /// nothing scrolls.
     private let scroll = NSScrollView()
     private let toolBar = EditorToolBar()
+    /// The size of the picture on screen, changed by a crop.
+    private var canvasWidth: NSLayoutConstraint?
+    private var canvasHeight: NSLayoutConstraint?
+    /// How wide the move handle and the tool bar are together: the window is never narrower.
+    private var barRowWidth: CGFloat = 0
 
     init(capture: CapturedImage) {
         self.capture = capture
-        // Original size, shrunk only if the image would not fit on screen.
-        let visible = NSScreen.underPointer?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let chrome = Self.barHeight + Self.gap + Self.framePadding * 2
-        let fit = min(1, visible.width * 0.85 / capture.pointSize.width,
-                      (visible.height * 0.9 - chrome) / capture.pointSize.height)
-        let size = NSSize(width: max(24, (capture.pointSize.width * fit).rounded()),
-                          height: max(24, (capture.pointSize.height * fit).rounded()))
+        let size = Self.canvasSize(for: capture.pointSize, on: NSScreen.underPointer)
         canvas = AnnotationCanvas(capture: capture, size: size, color: toolBar.color)
         window = EditorWindow(contentRect: NSRect(origin: .zero, size: size),
                               styleMask: [.borderless], backing: .buffered, defer: false)
@@ -45,7 +44,10 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.isMovableByWindowBackground = true
-        window.onEscape = { [weak self] in self?.window.close() }
+        window.onEscape = { [weak self] in
+            guard let self = self else { return }
+            if self.canvas.isCropping { self.canvas.cancelCrop() } else { self.window.close() }
+        }
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.shortcuts = [
@@ -59,6 +61,15 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         ]
         connectToolBar()
         buildContent(canvasSize: size)
+    }
+
+    /// How large a picture of `size` points shows: its own size, shrunk only if it would
+    /// not fit on `screen` together with the frame and the tool bar.
+    private static func canvasSize(for size: CGSize, on screen: NSScreen?) -> NSSize {
+        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let chrome = barHeight + gap + framePadding * 2
+        let fit = min(1, visible.width * 0.85 / size.width, (visible.height * 0.9 - chrome) / size.height)
+        return NSSize(width: max(24, (size.width * fit).rounded()), height: max(24, (size.height * fit).rounded()))
     }
 
     func show() {
@@ -80,8 +91,20 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         toolBar.onColor = { [weak self] color in self?.canvas.applyColor(color) }
         toolBar.onTool = { [weak self] tool in
             self?.canvas.commitText()
+            // Choosing a tool while cropping keeps the crop, as Return does.
+            self?.canvas.commitCrop()
             self?.canvas.tool = tool
         }
+        // The crop button begins cropping, and pressed again gives it up, as Esc does.
+        toolBar.onCrop = { [weak self] in
+            guard let canvas = self?.canvas else { return }
+            if canvas.isCropping { canvas.cancelCrop() } else { canvas.beginCrop() }
+        }
+        canvas.onCroppingChange = { [weak self] cropping in
+            guard let self = self else { return }
+            self.toolBar.showCropping(cropping, tool: self.canvas.tool)
+        }
+        canvas.onAreaChange = { [weak self] previous in self?.fitToArea(from: previous) }
         toolBar.onZoom = { [weak self] in self?.zoomClicked() }
         toolBar.onPin = { [weak self] in self?.pinResult() }
         toolBar.onSave = { [weak self] in self?.saveResult() }
@@ -124,9 +147,12 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         content.addSubview(bar)
         content.addSubview(handle)
         window.contentView = content
+        let width = scroll.widthAnchor.constraint(equalToConstant: canvasSize.width)
+        let height = scroll.heightAnchor.constraint(equalToConstant: canvasSize.height)
+        canvasWidth = width
+        canvasHeight = height
         NSLayoutConstraint.activate([
-            scroll.widthAnchor.constraint(equalToConstant: canvasSize.width),
-            scroll.heightAnchor.constraint(equalToConstant: canvasSize.height),
+            width, height,
             scroll.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             scroll.topAnchor.constraint(equalTo: content.topAnchor, constant: pad),
             frame.leadingAnchor.constraint(equalTo: scroll.leadingAnchor, constant: -pad),
@@ -142,9 +168,40 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
             handle.trailingAnchor.constraint(equalTo: bar.leadingAnchor, constant: -Self.handleGap),
             handle.centerYAnchor.constraint(equalTo: bar.centerYAnchor)
         ])
-        let barRow = bar.fittingSize.width + MoveHandle.diameter + Self.handleGap
-        window.setContentSize(NSSize(width: max(canvasSize.width + pad * 2, barRow),
-                                     height: canvasSize.height + pad * 2 + Self.gap + Self.barHeight))
+        barRowWidth = bar.fittingSize.width + MoveHandle.diameter + Self.handleGap
+        window.setContentSize(contentSize(canvasSize: canvasSize))
+    }
+
+    private func contentSize(canvasSize: NSSize) -> NSSize {
+        let pad = Self.framePadding
+        return NSSize(width: max(canvasSize.width + pad * 2, barRowWidth),
+                      height: canvasSize.height + pad * 2 + Self.gap + Self.barHeight)
+    }
+
+    /// After a crop, or undoing one, the window takes the size of what is now shown, and
+    /// the middle of it stays where it was on screen; the zoom goes back to 1.
+    private func fitToArea(from previous: CGRect) {
+        let area = canvas.area
+        let oldScale = canvas.bounds.width / previous.width
+        let middle = NSPoint(x: (area.midX - previous.minX) * oldScale, y: (area.midY - previous.minY) * oldScale)
+        let target = window.convertPoint(toScreen: canvas.convert(middle, to: nil))
+        scroll.magnification = 1
+        let screen = NSScreen.screens.first { $0.frame.contains(target) } ?? window.screen
+        let size = Self.canvasSize(for: area.size, on: screen)
+        canvasWidth?.constant = size.width
+        canvasHeight?.constant = size.height
+        canvas.setFrameSize(size)
+        window.setContentSize(contentSize(canvasSize: size))
+        window.layoutIfNeeded()
+        let shown = window.convertPoint(toScreen: canvas.convert(NSPoint(x: size.width / 2, y: size.height / 2), to: nil))
+        var frame = window.frame.offsetBy(dx: target.x - shown.x, dy: target.y - shown.y)
+        // Never off the screen, if it can be helped.
+        if let visible = screen?.visibleFrame {
+            frame.origin.x = min(max(frame.minX, visible.minX), max(visible.minX, visible.maxX - frame.width))
+            frame.origin.y = min(max(frame.minY, visible.minY), max(visible.minY, visible.maxY - frame.height))
+        }
+        window.setFrame(frame, display: true)
+        zoomChanged()
     }
 
     /// Glass like the tool bar, so nearly see-through, with the edge glass has and the
@@ -167,9 +224,9 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
 
     /// Development aid; see `AnnotationCanvas.drawSamples`. `zoom` then looks closer at
     /// the middle of the picture.
-    func runDemo(thenCopy: Bool, thenEdit: Bool = false, zoom: CGFloat = 1) {
+    func runDemo(thenCopy: Bool, thenEdit: Bool = false, thenCrop: Bool = false, zoom: CGFloat = 1) {
         window.layoutIfNeeded()
-        canvas.drawSamples(colors: EditorToolBar.palette, thenEdit: thenEdit)
+        canvas.drawSamples(colors: EditorToolBar.palette, thenEdit: thenEdit, thenCrop: thenCrop)
         if thenCopy { copyResult() }
         if zoom > 1 { self.zoom(to: zoom) }
     }
@@ -201,11 +258,15 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
 
     // MARK: Results
 
-    /// The capture with the annotations burned in, or the untouched capture if there are none.
+    /// The capture with the annotations burned in and cropped, or the untouched capture if
+    /// nothing was changed. A crop being adjusted is kept, as Return would.
     private func exported() -> CapturedImage? {
         canvas.commitText()
-        if canvas.annotations.isEmpty { return capture }
-        guard let data = AnnotationRenderer.export(capture: capture, annotations: canvas.annotations),
+        canvas.commitCrop()
+        let cropped = canvas.area != CGRect(origin: .zero, size: capture.pointSize)
+        if canvas.annotations.isEmpty, !cropped { return capture }
+        guard let data = AnnotationRenderer.export(capture: capture, annotations: canvas.annotations,
+                                                   area: cropped ? canvas.area : nil),
               let result = CapturedImage(data: data) else {
             NSSound.beep()
             return nil

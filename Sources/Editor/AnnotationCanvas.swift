@@ -3,6 +3,8 @@ import AppKit
 /// The drawing surface: shows the capture and turns mouse gestures into annotations.
 /// A click on an existing annotation selects it instead of drawing: it can then be
 /// dragged, reshaped by its handles, recoloured or deleted; double-clicking text edits it.
+/// After a crop the canvas shows only the part kept (`area`); the annotations keep their
+/// place on the whole picture, so undoing the crop brings back everything as it was.
 final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     /// What a drag on empty space draws; nil is the pointer, which only selects.
     var tool: AnnotationTool? {
@@ -18,14 +20,40 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     private var current: Annotation? { didSet { needsDisplay = true } }
     /// Index into `annotations` of the selected one.
     private var selected: Int? { didSet { needsDisplay = true } }
+    /// The part of the picture shown and exported, in image points: all of it until cropped.
+    private(set) var area: CGRect { didSet { needsDisplay = true } }
+    /// Called with the previous `area` when a crop, or undoing one, changed it.
+    var onAreaChange: ((_ previous: CGRect) -> Void)?
+    /// The frame being adjusted while cropping; nil otherwise.
+    private var cropFrame: CropFrame? {
+        didSet {
+            needsDisplay = true
+            if (cropFrame == nil) != (oldValue == nil) {
+                window?.invalidateCursorRects(for: self)
+                onCroppingChange?(cropFrame != nil)
+            }
+        }
+    }
+    var isCropping: Bool { cropFrame != nil }
+    /// Called when cropping begins or ends.
+    var onCroppingChange: ((Bool) -> Void)?
     private enum Drag {
         case move(from: CGPoint, original: Annotation)
         case handle(Int)
+        case moveCrop(from: CGPoint, original: CropFrame)
+        case cropHandle(Int)
+        /// A new crop frame dragged out from `from`; a stray click puts `previous` back.
+        case newCrop(from: CGPoint, previous: CropFrame)
     }
-    /// What the mouse is doing to the selected annotation right now.
+    /// What the mouse is doing to the selected annotation or the crop frame right now.
     private var drag: Drag?
-    /// Earlier states of `annotations`, newest last; undo goes back one.
-    private var history: [[Annotation]] = []
+    /// What undo brings back: the annotations and the crop together.
+    private struct Snapshot {
+        var annotations: [Annotation]
+        var area: CGRect
+    }
+    /// Earlier states, newest last; undo goes back one.
+    private var history: [Snapshot] = []
     /// The annotation whose colour the last change set, so that dragging through the
     /// colour picker is one undo step rather than dozens.
     private var lastRecolored: Int?
@@ -40,14 +68,18 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     /// Live editor for the text tool; replaced by a text annotation when committed.
     private var textField: NSTextField?
     private var textAnchor = CGPoint.zero
+    /// Image pixels per image point, to which a crop is rounded.
+    private let pixelDensity: CGFloat
     /// View points per image point.
-    private var scale: CGFloat { bounds.width / imageSize.width }
+    private var scale: CGFloat { bounds.width / area.width }
     /// How far the scroll view around the canvas is zoomed in. Handles and the distance
     /// that counts as a hit are divided by it, so they stay the same size on screen.
     private var zoom: CGFloat { enclosingScrollView?.magnification ?? 1 }
 
     init(capture: CapturedImage, size: NSSize, color: CGColor) {
         imageSize = capture.pointSize
+        area = CGRect(origin: .zero, size: capture.pointSize)
+        pixelDensity = capture.pixelSize.width / capture.pointSize.width
         self.color = color
         // Only as many pixels as the canvas can show when zoomed in all the way (never
         // more than the capture has); the export decodes the original itself.
@@ -65,19 +97,48 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     // The window can be dragged by its background, and AppKit counts a view that is not
     // opaque as background: without this, drawing would drag the window along.
     override var mouseDownCanMoveWindow: Bool { false }
-    /// Arrow for the pointer, crosshair for the drawing tools.
-    private var restingCursor: NSCursor { tool == nil ? .arrow : .crosshair }
+    /// Arrow for the pointer, crosshair for the drawing tools and for cropping.
+    private var restingCursor: NSCursor { tool == nil && !isCropping ? .arrow : .crosshair }
     override func resetCursorRects() { addCursorRect(bounds, cursor: restingCursor) }
 
     override func draw(_ dirtyRect: NSRect) {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
+        context.saveGState()
+        // Drawn as the whole picture, shifted so that the part kept fills the view.
+        context.translateBy(x: -area.minX * scale, y: -area.minY * scale)
         if let baseImage = baseImage {
             context.interpolationQuality = .high
-            context.draw(baseImage, in: bounds)
+            context.draw(baseImage, in: CGRect(x: 0, y: 0, width: imageSize.width * scale,
+                                               height: imageSize.height * scale))
         }
         AnnotationRenderer.draw(annotations + (current.map { [$0] } ?? []), in: context,
                                 scale: scale, imageSize: imageSize, mosaic: mosaic)
         if let index = selected { drawSelection(of: annotations[index], in: context) }
+        if let frame = cropFrame { drawCrop(frame, in: context) }
+        context.restoreGState()
+    }
+
+    /// Dims what the crop leaves out and outlines what it keeps, with a handle at each
+    /// corner and in the middle of each edge.
+    private func drawCrop(_ frame: CropFrame, in context: CGContext) {
+        let toView = CGAffineTransform(scaleX: scale, y: scale)
+        let kept = frame.rect.applying(toView)
+        context.setFillColor(CGColor(gray: 0, alpha: 0.5))
+        context.addRect(area.applying(toView))
+        context.addRect(kept)
+        context.fillPath(using: .evenOdd)
+        let point = 1 / zoom
+        context.setStrokeColor(CGColor(gray: 1, alpha: 1))
+        context.setLineWidth(point)
+        context.stroke(kept)
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.setStrokeColor(CGColor(gray: 0, alpha: 0.35))
+        for handle in frame.handles {
+            let dot = CGRect(x: handle.x * scale - 4.5 * point, y: handle.y * scale - 4.5 * point,
+                             width: 9 * point, height: 9 * point)
+            context.fillEllipse(in: dot)
+            context.strokeEllipse(in: dot)
+        }
     }
 
     /// Marks the selected annotation: round handles where it can be reshaped, otherwise
@@ -112,7 +173,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
 
     /// Remembers the present state so that `undo()` can come back to it.
     private func record() {
-        history.append(annotations)
+        history.append(Snapshot(annotations: annotations, area: area))
         lastRecolored = nil
     }
 
@@ -159,16 +220,24 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     override func mouseMoved(with event: NSEvent) {
         guard textField == nil else { return }
         let point = imagePoint(event)
+        if let frame = cropFrame {
+            if let handle = cropHandle(at: point, of: frame) {
+                Self.resizeCursor(forCropHandle: handle).set()
+            } else {
+                (frame.rect != area && frame.rect.contains(point) ? NSCursor.openHand : restingCursor).set()
+            }
+            return
+        }
         (handle(at: point) != nil || annotation(at: point) != nil ? NSCursor.openHand : restingCursor).set()
     }
 
     // MARK: Drawing gestures
 
-    /// Event location in image points, kept inside the image.
+    /// Event location in image points, kept inside what is shown.
     private func imagePoint(_ event: NSEvent) -> CGPoint {
         let point = convert(event.locationInWindow, from: nil)
-        return CGPoint(x: min(max(point.x, 0), bounds.width) / scale,
-                       y: min(max(point.y, 0), bounds.height) / scale)
+        return CGPoint(x: area.minX + min(max(point.x, 0), bounds.width) / scale,
+                       y: area.minY + min(max(point.y, 0), bounds.height) / scale)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -176,6 +245,10 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         commitText()
         let point = imagePoint(event)
         dragPoint = nil
+        if let frame = cropFrame {
+            cropMouseDown(at: point, frame: frame, clickCount: event.clickCount)
+            return
+        }
         // An existing annotation under the pointer takes the click, whatever the tool.
         if let handle = handle(at: point) {
             record()
@@ -214,9 +287,11 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     override func mouseDragged(with event: NSEvent) {
         let point = imagePoint(event)
         dragPoint = point
-        if let index = selected, case .move(let from, let original)? = drag {
+        if isCropping {
+            cropMouseDragged(to: point)
+        } else if let index = selected, case .move(let from, let original)? = drag {
             annotations[index] = original.moved(by: CGVector(dx: point.x - from.x, dy: point.y - from.y),
-                                                keepingInside: CGRect(origin: .zero, size: imageSize))
+                                                keepingInside: area)
         } else if var annotation = current, annotation.tool == .pen {
             annotation.points.append(point)
             current = annotation
@@ -234,9 +309,9 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         if let point = dragPoint { stretch(to: point, snappingInside: snapLimit(event)) }
     }
 
-    /// The image's bounds while Shift is held: what `Annotation.snapped` keeps within.
+    /// What is shown while Shift is held: what `Annotation.snapped` keeps within.
     private func snapLimit(_ event: NSEvent) -> CGRect? {
-        event.modifierFlags.contains(.shift) ? CGRect(origin: .zero, size: imageSize) : nil
+        event.modifierFlags.contains(.shift) ? area : nil
     }
 
     /// Takes the end being dragged, of the shape being drawn or of the selected one's
@@ -254,6 +329,10 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
 
     override func mouseUp(with event: NSEvent) {
         dragPoint = nil
+        if isCropping {
+            cropMouseUp()
+            return
+        }
         if let drag = drag {
             self.drag = nil
             // A click that only selected changed nothing, so there is nothing to undo.
@@ -286,25 +365,125 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
 
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 53: window?.close() // Esc
+        case 53 where isCropping: cancelCrop() // Esc
+        case 53: window?.close()
+        case 36 where isCropping, 76 where isCropping: commitCrop() // Return, Enter
         case 51 where selected != nil, 117 where selected != nil: deleteSelected() // Delete, Forward Delete
         default: super.keyDown(with: event)
         }
     }
 
+    /// Leaves cropping without a change, or goes back one step.
     func undo() {
         if textField != nil {
             discardText()
+        } else if isCropping {
+            cancelCrop()
         } else if let previous = history.popLast() {
             selected = nil
             lastRecolored = nil
-            annotations = previous
+            annotations = previous.annotations
+            if previous.area != area {
+                let old = area
+                area = previous.area
+                onAreaChange?(old)
+            }
         }
+    }
+
+    // MARK: Cropping
+
+    /// Shows the crop frame around everything shown, ready to be pulled in by its handles
+    /// or dragged out afresh.
+    func beginCrop() {
+        commitText()
+        selected = nil
+        current = nil
+        drag = nil
+        cropFrame = CropFrame(rect: area)
+    }
+
+    /// Keeps what the frame holds, rounded to whole pixels, and leaves cropping.
+    func commitCrop() {
+        guard let frame = cropFrame else { return }
+        cropFrame = nil
+        drag = nil
+        let d = pixelDensity
+        let r = frame.rect
+        let minX = (r.minX * d).rounded() / d, maxX = (r.maxX * d).rounded() / d
+        let minY = (r.minY * d).rounded() / d, maxY = (r.maxY * d).rounded() / d
+        let kept = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY).intersection(area)
+        guard !kept.isNull, kept.width >= CropFrame.minimumSide, kept.height >= CropFrame.minimumSide,
+              kept != area else { return }
+        record()
+        let old = area
+        area = kept
+        onAreaChange?(old)
+    }
+
+    /// Leaves cropping without changing anything.
+    func cancelCrop() {
+        drag = nil
+        cropFrame = nil
+    }
+
+    /// The system's resize pointer for the edge or corner a crop handle moves, in the
+    /// order of `CropFrame.handles`.
+    private static func resizeCursor(forCropHandle index: Int) -> NSCursor {
+        let positions: [NSCursor.FrameResizePosition] = [.bottomLeft, .bottom, .bottomRight, .right,
+                                                         .topRight, .top, .topLeft, .left]
+        return NSCursor.frameResize(position: positions[index], directions: .all)
+    }
+
+    /// The crop handle under `point`, if any.
+    private func cropHandle(at point: CGPoint, of frame: CropFrame) -> Int? {
+        let reach = (Self.grabDistance + 2) / scale / zoom
+        return frame.handles.firstIndex { hypot($0.x - point.x, $0.y - point.y) <= reach }
+    }
+
+    /// A handle reshapes the frame and a drag inside it moves it; anywhere else, or
+    /// anywhere while the frame still holds everything, a new frame is dragged out.
+    /// Double-clicking inside the frame keeps what it holds.
+    private func cropMouseDown(at point: CGPoint, frame: CropFrame, clickCount: Int) {
+        if let handle = cropHandle(at: point, of: frame) {
+            drag = .cropHandle(handle)
+        } else if frame.rect != area, frame.rect.contains(point) {
+            if clickCount == 2 { return commitCrop() }
+            drag = .moveCrop(from: point, original: frame)
+        } else {
+            drag = .newCrop(from: point, previous: frame)
+            cropFrame = CropFrame.spanning(point, point, inside: area)
+        }
+    }
+
+    private func cropMouseDragged(to point: CGPoint) {
+        guard let frame = cropFrame else { return }
+        switch drag {
+        case .cropHandle(let handle)?:
+            cropFrame = frame.movingHandle(handle, to: point, inside: area)
+        case .moveCrop(let from, let original)?:
+            cropFrame = original.moved(by: CGVector(dx: point.x - from.x, dy: point.y - from.y), inside: area)
+        case .newCrop(let from, _)?:
+            cropFrame = CropFrame.spanning(from, point, inside: area)
+        default:
+            break
+        }
+    }
+
+    private func cropMouseUp() {
+        // A click that dragged out nothing visible leaves the frame as it was.
+        if case .newCrop(_, let previous)? = drag, let frame = cropFrame,
+           min(frame.rect.width, frame.rect.height) * scale < 3 || min(frame.rect.width, frame.rect.height) < CropFrame.minimumSide {
+            cropFrame = previous
+        }
+        drag = nil
     }
 
     /// Development aid: replays one gesture per tool through the real mouse handlers,
     /// so the drawing path can be checked without touching the pointer.
-    func drawSamples(colors: [CGColor], thenEdit: Bool = false) {
+    /// `thenCrop` goes on to crop the samples: a new frame dragged out over most of the
+    /// picture and its right edge pulled in, left there to be kept or cancelled.
+    func drawSamples(colors: [CGColor], thenEdit: Bool = false, thenCrop: Bool = false) {
         func event(_ type: NSEvent.EventType, _ x: CGFloat, _ y: CGFloat, _ flags: NSEvent.ModifierFlags) -> NSEvent {
             let point = convert(NSPoint(x: x * bounds.width, y: y * bounds.height), to: nil)
             return NSEvent.mouseEvent(with: type, location: point, modifierFlags: flags, timestamp: 0,
@@ -339,6 +518,13 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         gesture(.text, 3, [(0.08, 0.25)])
         textField?.stringValue = "Hello 标注 123"
         commitText()
+        if thenCrop {
+            beginCrop()
+            gesture(.arrow, 0, [(0.04, 0.2), (0.6, 0.95)])
+            // The right edge's handle is the fourth, at its middle.
+            gesture(.arrow, 0, [(0.6, 0.575), (0.5, 0.575)])
+            return
+        }
         guard thenEdit else { return }
         // Edit what was just drawn: delete the first counter (the second becomes 1), turn
         // the pen stroke blue, pull the arrow's head, then move the rectangle and leave
@@ -373,9 +559,9 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         field.textColor = NSColor(cgColor: existing?.color ?? color)
         field.delegate = self
         let height = field.fittingSize.height
-        let x = point.x * scale
+        let x = (point.x - area.minX) * scale
         // The field's text starts 2 pt in from its frame; line the glyphs up with the click.
-        field.frame = NSRect(x: x - 2, y: point.y * scale - height,
+        field.frame = NSRect(x: x - 2, y: (point.y - area.minY) * scale - height,
                              width: max(40, bounds.width - x), height: height)
         addSubview(field)
         textField = field
@@ -405,7 +591,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         textField = nil
         field.removeFromSuperview()
         // Giving up an edit puts the original text back.
-        if editingExistingText, let previous = history.popLast() { annotations = previous }
+        if editingExistingText, let previous = history.popLast() { annotations = previous.annotations }
         editingExistingText = false
         window?.makeFirstResponder(self)
     }

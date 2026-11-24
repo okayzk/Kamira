@@ -135,4 +135,50 @@ func testEditor() {
     check(EditorZoom.stepOut(from: 8) == 4 && EditorZoom.stepOut(from: 1.5) == 1, "zooming out goes to the step below")
     check(EditorZoom.stepOut(from: 1) == 1, "never smaller than the whole picture")
     check(EditorZoom.clamped(0.3) == 1 && EditorZoom.clamped(20) == 8 && EditorZoom.clamped(3) == 3, "zoom limits")
+
+    testCropping(base: base, red: red, counter: counter)
+}
+
+/// Cropping: the frame the user adjusts, and the export of the part it keeps.
+private func testCropping(base: CapturedImage, red: CGColor, counter: Annotation) {
+    func at(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
+    let picture = CGRect(x: 0, y: 0, width: 200, height: 100)
+    let frame = CropFrame(rect: CGRect(x: 20, y: 10, width: 100, height: 60))
+
+    // Eight handles: the corners and the middle of each edge, anticlockwise from the bottom left.
+    check(frame.handles == [at(20, 10), at(70, 10), at(120, 10), at(120, 40),
+                            at(120, 70), at(70, 70), at(20, 70), at(20, 40)],
+          "a crop frame has a handle at each corner and edge, got \(frame.handles)")
+    check(frame.movingHandle(6, to: at(5, 90), inside: picture).rect == CGRect(x: 5, y: 10, width: 115, height: 80),
+          "dragging the top-left corner moves the left and top edges")
+    check(frame.movingHandle(3, to: at(150, 0), inside: picture).rect == CGRect(x: 20, y: 10, width: 130, height: 60),
+          "dragging the middle of an edge moves that edge only")
+    check(frame.movingHandle(2, to: at(500, -50), inside: picture).rect == CGRect(x: 20, y: 0, width: 180, height: 70),
+          "a handle stops at the edge of the picture")
+    check(frame.movingHandle(7, to: at(400, 40), inside: picture).rect.width == CropFrame.minimumSide,
+          "an edge stops short of the opposite one")
+    check(frame.moved(by: CGVector(dx: 500, dy: 5), inside: picture).rect == CGRect(x: 100, y: 15, width: 100, height: 60),
+          "moving the frame stops at the edge of the picture")
+    check(CropFrame.spanning(at(150, 90), at(-10, 50), inside: picture).rect == CGRect(x: 0, y: 50, width: 150, height: 40),
+          "a frame dragged out in any direction stays inside the picture")
+
+    // Points have their origin at the bottom left, bitmaps at the top left.
+    check(CropFrame.pixelRect(of: CGRect(x: 10, y: 20, width: 50, height: 30),
+                              pointSize: CGSize(width: 200, height: 100), pixelSize: CGSize(width: 400, height: 200))
+          == CGRect(x: 20, y: 100, width: 100, height: 60), "a crop in points becomes a crop in pixels")
+
+    // The export keeps only the frame's part of the picture, annotations included.
+    let area = CGRect(x: 30, y: 30, width: 50, height: 40)
+    if let data = AnnotationRenderer.export(capture: base, annotations: [counter], area: area),
+       let out = CapturedImage(data: data), let image = out.fullSizeUncached() {
+        check(out.pixelSize == CGSize(width: 100, height: 80), "a cropped export has the frame's size, got \(out.pixelSize)")
+        check(out.pointSize == CGSize(width: 50, height: 40), "a cropped export keeps the pixel density, got \(out.pointSize)")
+        let disc = pixel(image, x: 22, y: 40)       // the counter, now 20 pt in from the left and the top
+        check(disc.r > 0.8 && disc.b < 0.3, "the counter moves with the crop, got \(disc)")
+        let rest = pixel(image, x: 90, y: 70)
+        check(rest.r < 0.5 && rest.b > 0.6, "the rest of the crop is the picture, got \(rest)")
+    } else { check(false, "cropped export failed") }
+    if let data = AnnotationRenderer.export(capture: base, annotations: [], area: area) {
+        check(CapturedImage(data: data)?.pixelSize == CGSize(width: 100, height: 80), "a crop without annotations is exported too")
+    } else { check(false, "crop-only export failed") }
 }
