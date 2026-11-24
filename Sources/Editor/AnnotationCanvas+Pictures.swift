@@ -1,7 +1,8 @@
 import AppKit
 
-// The canvas with several pictures (screenshots combined into one): each picture's menu,
-// what assistive apps can do with the pictures in place of dragging them, and a demo.
+// The canvas with several pictures (screenshots combined into one, or added in the
+// editor): each picture's menu, what assistive apps can do with the pictures in place of
+// dragging them, adding one, and a demo.
 // Picking a picture up and dragging it is in the mouse handlers of `AnnotationCanvas`.
 extension AnnotationCanvas {
     /// How far one Move action of an assistive app takes a picture, in points.
@@ -49,38 +50,58 @@ extension AnnotationCanvas {
     override func accessibilityChildren() -> [Any]? {
         let own = super.accessibilityChildren() ?? []
         guard stack.isSeveral, !isCropping else { return own }
-        let toView = CGAffineTransform(translationX: -area.minX, y: -area.minY).scaledBy(x: scale, y: scale)
+        let toView = CGAffineTransform(scaleX: scale, y: scale).translatedBy(x: -area.minX, y: -area.minY)
         // Bottom to top, as they lie; frames in the canvas's own points.
         let elements = stack.layers.map { layer -> NSAccessibilityElement in
-            let element = pictureElements[layer.picture]
-            element.setAccessibilityFrameInParentSpace(layer.frame.applying(toView).intersection(bounds))
+            let element = pictureElements[layer.picture] ?? makePictureElement(layer.picture)
+            pictureElements[layer.picture] = element
+            element.setAccessibilityFrameInParentSpace(layer.shownFrame.applying(toView).intersection(bounds))
             return element
         }
         return own + elements
     }
 
-    func makePictureElements() -> [NSAccessibilityElement] {
-        stack.layers.map { layer in
-            let picture = layer.picture
-            let element = NSAccessibilityElement()
-            element.setAccessibilityRole(.image)
-            element.setAccessibilityLabel(L("layer.name", picture + 1))
-            element.setAccessibilityIdentifier("editor.picture")
-            element.setAccessibilityParent(self)
-            let step = Self.accessibleStep
-            let actions: [(String, () -> Void)] = [
-                (L("layer.bringToFront"), { [weak self] in self?.restack(picture, toFront: true) }),
-                (L("layer.sendToBack"), { [weak self] in self?.restack(picture, toFront: false) }),
-                (L("layer.moveLeft"), { [weak self] in self?.move(picture, by: CGVector(dx: -step, dy: 0)) }),
-                (L("layer.moveRight"), { [weak self] in self?.move(picture, by: CGVector(dx: step, dy: 0)) }),
-                (L("layer.moveUp"), { [weak self] in self?.move(picture, by: CGVector(dx: 0, dy: step)) }),
-                (L("layer.moveDown"), { [weak self] in self?.move(picture, by: CGVector(dx: 0, dy: -step)) })
-            ]
-            element.setAccessibilityCustomActions(actions.map { name, act in
-                NSAccessibilityCustomAction(name: name) { act(); return true }
-            })
-            return element
+    private func makePictureElement(_ picture: Int) -> NSAccessibilityElement {
+        let element = NSAccessibilityElement()
+        element.setAccessibilityRole(.image)
+        element.setAccessibilityLabel(L("layer.name", picture + 1))
+        element.setAccessibilityIdentifier("editor.picture")
+        element.setAccessibilityParent(self)
+        let step = Self.accessibleStep
+        let actions: [(String, () -> Void)] = [
+            (L("layer.bringToFront"), { [weak self] in self?.restack(picture, toFront: true) }),
+            (L("layer.sendToBack"), { [weak self] in self?.restack(picture, toFront: false) }),
+            (L("layer.moveLeft"), { [weak self] in self?.move(picture, by: CGVector(dx: -step, dy: 0)) }),
+            (L("layer.moveRight"), { [weak self] in self?.move(picture, by: CGVector(dx: step, dy: 0)) }),
+            (L("layer.moveUp"), { [weak self] in self?.move(picture, by: CGVector(dx: 0, dy: step)) }),
+            (L("layer.moveDown"), { [weak self] in self?.move(picture, by: CGVector(dx: 0, dy: -step)) })
+        ]
+        element.setAccessibilityCustomActions(actions.map { name, act in
+            NSAccessibilityCustomAction(name: name) { act(); return true }
+        })
+        return element
+    }
+
+    // MARK: Adding a screenshot
+
+    /// Puts a screenshot taken in the editor beside what shows (`LayerStack.placeForNext`),
+    /// on top and selected. A crop is first made part of the pictures, so that nothing
+    /// cut away comes back as the whole grows. One undo step takes it all back.
+    func add(_ picture: CapturedImage) {
+        commitText()
+        commitCrop()
+        record()
+        let old = area
+        if let kept = crop {
+            stack.keepOnly(kept)
+            annotations = annotations.map { $0.keepingOnly(kept) }
+            crop = nil
         }
+        let id = pictures.add(picture)
+        stack.add(picture: id, at: stack.placeForNext(picture.pointSize), size: picture.pointSize)
+        selected = nil
+        selectedLayer = stack.layers.count - 1
+        onAreaChange?(old)
     }
 
     private func index(of picture: Int) -> Int? { stack.layers.firstIndex { $0.picture == picture } }

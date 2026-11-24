@@ -175,6 +175,31 @@ private func testLayers(red: CGColor) {
     check(stack.layers.map(\.picture) == [0, 1] && pictureOnTop() == 1, "brought to the front")
     check(stack.layers[1].frame == CGRect(x: 40, y: 30, width: 60, height: 50), "a picture keeps its place when restacked")
 
+    // A screenshot added in the editor goes beside what is shown: to the right, tops
+    // level, or below, left edges level, whichever leaves the whole nearer a square.
+    var tall = LayerStack(frames: [CGRect(x: 0, y: 0, width: 100, height: 300)])
+    check(tall.placeForNext(CGSize(width: 100, height: 100)) == CGPoint(x: 116, y: 200),
+          "beside a tall picture: to the right, tops level, got \(tall.placeForNext(CGSize(width: 100, height: 100)))")
+    let wide = LayerStack(frames: [CGRect(x: 0, y: 0, width: 300, height: 100)])
+    check(wide.placeForNext(CGSize(width: 100, height: 100)) == CGPoint(x: 0, y: -116), "below a wide one, lefts level")
+    let square = LayerStack(frames: [CGRect(x: 0, y: 0, width: 100, height: 100)])
+    check(square.placeForNext(CGSize(width: 100, height: 100)) == CGPoint(x: 116, y: 0), "as square either way: to the right")
+    tall.add(picture: 1, at: CGPoint(x: 116, y: 200), size: CGSize(width: 100, height: 100))
+    check(tall.isSeveral && tall.layers.last?.picture == 1 && tall.bounds == CGRect(x: -16, y: -16, width: 248, height: 332),
+          "added on top, the gap around both, got \(tall.bounds)")
+
+    // Adding after a crop: each picture keeps only what the crop kept, so nothing cut
+    // away comes back as the whole grows; a picture the crop left out goes.
+    var cropped = LayerStack(frames: [CGRect(x: 16, y: 16, width: 100, height: 50), CGRect(x: 132, y: 16, width: 60, height: 50)])
+    cropped.keepOnly(CGRect(x: 30, y: 20, width: 40, height: 30))
+    check(cropped.layers.count == 1 && cropped.layers[0].shownFrame == CGRect(x: 30, y: 20, width: 40, height: 30),
+          "only what the crop kept, got \(cropped.layers.map(\.shownFrame))")
+    check(cropped.layers[0].frame == CGRect(x: 16, y: 16, width: 100, height: 50), "the picture itself stays where it lay")
+    check(cropped.bounds == CGRect(x: 30, y: 20, width: 40, height: 30), "one picture again: no gap")
+    check(cropped.topmost(at: CGPoint(x: 20, y: 20)) == nil, "the part cut away cannot be picked up")
+    cropped.move(0, to: CGPoint(x: 0, y: 0))
+    check(cropped.layers[0].shownFrame == CGRect(x: 14, y: 4, width: 40, height: 30), "what is kept moves with the picture")
+
     // The export: the pictures where they lie, the background between them, the
     // annotations over them, at the sharpest picture's resolution.
     let sharp = CapturedImage(data: makeImageData(width: 200, height: 100, dpi: 144, type: .png))!   // 100 × 50 pt
@@ -208,6 +233,43 @@ private func testLayers(red: CGColor) {
         check(bytes[(30 * 80 + 4) * 4 + 3] == 0, "see-through in the gap without a background")
         check(bytes[(30 * 80 + 60) * 4 + 3] == 255, "the second picture inside the crop")
     } else { check(false, "a crop of several pictures was not exported") }
+
+    // A crop made part of the pictures holds for the annotations too: what lay outside it
+    // stays out of sight and out of reach, wherever the annotation is moved.
+    let across = Annotation(tool: .highlight, color: red, points: [CGPoint(x: 0, y: 0), CGPoint(x: 100, y: 40)])
+        .keepingOnly(CGRect(x: 0, y: 0, width: 50, height: 82))
+    check(across.hitTest(CGPoint(x: 20, y: 20), tolerance: 0) && !across.hitTest(CGPoint(x: 80, y: 20), tolerance: 0),
+          "reached only where it still shows")
+    check(across.bounds == CGRect(x: 0, y: 0, width: 50, height: 40), "its bounds are what shows, got \(across.bounds)")
+    check(across.moved(by: CGVector(dx: 10, dy: 0)).bounds == CGRect(x: 10, y: 0, width: 50, height: 40),
+          "what shows moves with it")
+    if let data = AnnotationRenderer.export(pictures: [sharp, plain], stack: LayerStack(frames: [left, right]), background: nil,
+                                            annotations: [across], area: CGRect(x: 0, y: 0, width: 208, height: 82)),
+       let image = CapturedImage(data: data)?.fullSizeUncached() {
+        // On the first picture, 20 points up: 20 points in still shows, 60 points in was cropped away.
+        let shown = pixel(image, x: 40, y: 124), hidden = pixel(image, x: 120, y: 124)
+        check(shown.r > 0.4, "drawn where it shows, got \(shown)")
+        check(hidden.r < 0.3, "not drawn where it was cropped away, got \(hidden)")
+    } else { check(false, "a kept annotation was not exported") }
+
+    // A picture that keeps only part of itself is drawn as only that part.
+    var partial = LayerStack(frames: [left])
+    partial.keepOnly(CGRect(x: 16, y: 16, width: 50, height: 50))
+    partial.add(picture: 1, at: CGPoint(x: 82, y: 16), size: plain.pointSize)
+    if let data = AnnotationRenderer.export(pictures: [sharp, plain], stack: partial, background: nil,
+                                            annotations: [], area: partial.bounds),
+       let out = CapturedImage(data: data), let image = out.fullSizeUncached() {
+        check(out.pointSize == CGSize(width: 158, height: 82), "the kept part, the new one and the gap, got \(out.pointSize)")
+        var bytes = [UInt8](repeating: 0, count: image.width * image.height * 4)
+        let canvas = CGContext(data: &bytes, width: image.width, height: image.height, bitsPerComponent: 8,
+                               bytesPerRow: image.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                               bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        canvas.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        func alpha(_ x: CGFloat, _ y: CGFloat) -> UInt8 { bytes[(Int((82 - y) * 2) * image.width + Int(x * 2)) * 4 + 3] }
+        check(alpha(40, 40) == 255, "the part kept is drawn")
+        check(alpha(74, 40) == 0, "the part cut away is not, got \(alpha(74, 40))")
+        check(alpha(110, 40) == 255, "the new picture beside it")
+    } else { check(false, "a picture keeping part of itself was not exported") }
 }
 
 /// Cropping: the frame the user adjusts, and the export of the part it keeps.

@@ -28,6 +28,7 @@
 "editor.crop" = "Crop (Return to apply, Esc to cancel)";
 "editor.moreColors" = "More Colours…";
 "editor.background" = "Background between the pictures";
+"editor.addScreenshot" = "Add a screenshot beside this one";
 "background.none" = "Transparent";
 "background.custom" = "Own colour";
 "layer.name" = "Picture %d";

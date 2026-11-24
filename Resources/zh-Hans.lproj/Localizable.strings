@@ -28,6 +28,7 @@
 "editor.crop" = "裁剪（回车确认，Esc 取消）";
 "editor.moreColors" = "更多颜色…";
 "editor.background" = "图片之间的背景";
+"editor.addScreenshot" = "追加截图";
 "background.none" = "透明";
 "background.custom" = "自选颜色";
 "layer.name" = "第 %d 张图";

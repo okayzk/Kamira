@@ -19,7 +19,8 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     var onToolChange: ((AnnotationTool?) -> Void)?
     /// Colour for new annotations; change it with `applyColor(_:)`.
     private(set) var color: CGColor
-    private(set) var annotations: [Annotation] = [] { didSet { needsDisplay = true } }
+    /// Changed only by the canvas. (Not private.)
+    var annotations: [Annotation] = [] { didSet { needsDisplay = true } }
     /// The annotation being dragged out right now.
     private var current: Annotation? { didSet { needsDisplay = true } }
     /// Index into `annotations` of the selected one. (Not private, here and below where
@@ -31,8 +32,8 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     private(set) var background: CGColor? { didSet { needsDisplay = true } }
     /// Called when the background changed, also by undoing.
     var onBackgroundChange: ((CGColor?) -> Void)?
-    /// What a crop keeps, in image points; nil keeps everything.
-    private var crop: CGRect? { didSet { needsDisplay = true } }
+    /// What a crop keeps, in image points; nil keeps everything. (Not private.)
+    var crop: CGRect? { didSet { needsDisplay = true } }
     var isCropped: Bool { crop != nil }
     /// The whole as it was when a picture began to be dragged: what is shown holds still
     /// until it is let go.
@@ -43,9 +44,9 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     var onAreaChange: ((_ previous: CGRect) -> Void)?
     /// Index into `stack.layers` of the selected picture, while there are several. (Not private.)
     var selectedLayer: Int? { didSet { needsDisplay = true } }
-    /// What assistive apps see of several pictures, one per picture, kept so that they
-    /// keep their place after an action. (Not private.)
-    lazy var pictureElements: [NSAccessibilityElement] = makePictureElements()
+    /// What assistive apps see of several pictures, by picture, kept so that they keep
+    /// their place after an action. (Not private.)
+    var pictureElements: [Int: NSAccessibilityElement] = [:]
     /// The frame being adjusted while cropping; nil otherwise.
     private var cropFrame: CropFrame? {
         didSet {
@@ -91,12 +92,14 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     /// How close, in view points, a click must be to count as on an annotation.
     private static let grabDistance: CGFloat = 6
 
-    /// The pictures as drawn on screen.
-    private let pictures: EditorPictures
+    /// The pictures as drawn on screen. (Not private.)
+    let pictures: EditorPictures
     /// Live editor for the text tool; replaced by a text annotation when committed.
     private var textField: NSTextField?
     var isTyping: Bool { textField != nil }
     private var textAnchor = CGPoint.zero
+    /// Where the text being edited may show (`Annotation.clip`).
+    private var textClip: CGRect?
     /// View points per image point. (Not private.)
     var scale: CGFloat { bounds.width / area.width }
     /// How far the scroll view around the canvas is zoomed in. Handles and the distance
@@ -638,6 +641,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         addSubview(field)
         textField = field
         textAnchor = point
+        textClip = existing?.clip
         window?.makeFirstResponder(field)
     }
 
@@ -652,7 +656,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         // emptying it deletes it.
         if !text.isEmpty {
             if !editingExistingText { record() }
-            annotations.append(Annotation(tool: .text, color: ink, points: [textAnchor], text: text))
+            annotations.append(Annotation(tool: .text, color: ink, points: [textAnchor], text: text, clip: textClip))
         }
         editingExistingText = false
         window?.makeFirstResponder(self)

@@ -5,25 +5,32 @@ import AppKit
 /// (`LayerStack`, the background), handed in to draw; the export decodes the full
 /// pictures itself.
 final class EditorPictures {
-    let pictures: [CapturedImage]
+    /// Every picture given or added, also one an undo took off the canvas.
+    private(set) var pictures: [CapturedImage] = []
     /// Image pixels per point of the sharpest picture, to which a crop is rounded.
-    let pixelDensity: CGFloat
-    private let shown: [CGImage?]
-    private let coarse: [CGImage?]
+    var pixelDensity: CGFloat { pictures.map { $0.pixelSize.width / $0.pointSize.width }.max() ?? 1 }
+    private var shown: [CGImage?] = []
+    private var coarse: [CGImage?] = []
+    /// View points per picture point at a zoom of 1, when the editor opened.
+    private let viewScale: CGFloat
 
-    /// `viewScale` is how many view points one picture point takes at a zoom of 1.
     init(_ pictures: [CapturedImage], viewScale: CGFloat) {
-        self.pictures = pictures
-        pixelDensity = pictures.map { $0.pixelSize.width / $0.pointSize.width }.max() ?? 1
+        self.viewScale = viewScale
+        pictures.forEach { add($0) }
+    }
+
+    /// Takes one more picture and returns its number.
+    @discardableResult
+    func add(_ picture: CapturedImage) -> Int {
         // Only as many pixels as the canvas can show when zoomed in all the way (never
         // more than a picture has).
         let backing = NSScreen.underPointer?.backingScaleFactor ?? 2
         let largestZoom = EditorZoom.steps[EditorZoom.steps.count - 1]
-        shown = pictures.map { picture in
-            picture.downsampled(maxPixel: max(picture.pointSize.width, picture.pointSize.height)
-                                * viewScale * backing * largestZoom)
-        }
-        coarse = pictures.map(AnnotationRenderer.mosaicImage(for:))
+        pictures.append(picture)
+        shown.append(picture.downsampled(maxPixel: max(picture.pointSize.width, picture.pointSize.height)
+                                         * viewScale * backing * largestZoom))
+        coarse.append(AnnotationRenderer.mosaicImage(for: picture))
+        return pictures.count - 1
     }
 
     /// Draws the background between several pictures, then the pictures, bottom to top;
@@ -36,14 +43,15 @@ final class EditorPictures {
         }
         context.interpolationQuality = .high
         for layer in stack.layers {
-            if let image = shown[layer.picture] { context.draw(image, in: layer.frame.applying(toView)) }
+            guard let image = shown[layer.picture] else { continue }
+            AnnotationRenderer.drawPicture(image, at: layer.frame, shown: layer.shownFrame, in: context, scale: scale)
         }
     }
 
     /// What a mosaic shows, for the pictures lying as `stack` says.
     func mosaic(_ stack: LayerStack) -> [AnnotationRenderer.MosaicTile] {
         stack.layers.compactMap { layer in
-            coarse[layer.picture].map { AnnotationRenderer.MosaicTile(image: $0, frame: layer.frame) }
+            coarse[layer.picture].map { AnnotationRenderer.MosaicTile(image: $0, frame: layer.frame, shown: layer.shownFrame) }
         }
     }
 }

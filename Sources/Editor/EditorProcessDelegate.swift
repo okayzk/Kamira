@@ -54,5 +54,11 @@ final class EditorProcessDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--demo-crop") { editor.runDemo(thenCopy: false, thenCrop: true) }
         // `--demo-arrange` drags one of several pictures over another and puts white between them.
         if CommandLine.arguments.contains("--demo-arrange") { editor.runArrangeDemo() }
+        // `--demo-add <image>` adds that picture as if it had just been taken.
+        if let index = CommandLine.arguments.firstIndex(of: "--demo-add"), index + 1 < CommandLine.arguments.count,
+           let data = try? Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[index + 1])),
+           let picture = CapturedImage(data: data) {
+            editor.runAddDemo(picture)
+        }
     }
 }

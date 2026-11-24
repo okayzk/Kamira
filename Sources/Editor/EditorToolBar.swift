@@ -38,8 +38,8 @@ final class EditorToolBar: NSObject {
     private let toolPicker = NSSegmentedControl()
     /// The colour or background menu while it is open.
     private var swatchMenu: NSMenu?
-    /// Whether the bar has the background button: only for several pictures. Set before `makeView`.
-    var showsBackground = false
+    var onAdd: (() -> Void)?
+    /// Shown only while there are several pictures (`showSeveral`).
     private let backgroundButton = NSButton()
     private var background: CGColor?
     /// The background choices of the menu, nil being see-through.
@@ -97,12 +97,15 @@ final class EditorToolBar: NSObject {
         backgroundButton.target = self
         backgroundButton.action = #selector(showBackgroundMenu)
         backgroundButton.widthAnchor.constraint(equalToConstant: 28).isActive = true
+        backgroundButton.isHidden = true
         // The window has no title bar, so the bar also carries the way to close it.
         let row = DraggableRow(views: [
             iconButton("arrow.uturn.backward", L("action.undo"), "editor.undo", #selector(undoClicked)),
             colorButton,
             separator(), toolPicker, separator(),
-            cropButton] + (showsBackground ? [backgroundButton] : []) + [zoomButton,
+            cropButton,
+            iconButton("plus.rectangle.on.rectangle", L("editor.addScreenshot"), "editor.add", #selector(addClicked)),
+            backgroundButton, zoomButton,
             iconButton("pin", L("action.pin"), "editor.pin", #selector(pinClicked)),
             iconButton("square.and.arrow.down", L("action.save"), "editor.save", #selector(saveClicked)),
             iconButton("xmark", L("editor.close"), "editor.close", #selector(closeClicked)),
@@ -139,6 +142,10 @@ final class EditorToolBar: NSObject {
 
     @objc private func toolChanged() { onTool?(AnnotationTool(rawValue: toolPicker.selectedSegment - 1)) }
     @objc private func cropClicked() { onCrop?() }
+    @objc private func addClicked() { onAdd?() }
+
+    /// The background button is there only while there are several pictures.
+    func showSeveral(_ several: Bool) { backgroundButton.isHidden = !several }
     @objc private func undoClicked() { onUndo?() }
     @objc private func zoomClicked() { onZoom?() }
     @objc private func pinClicked() { onPin?() }

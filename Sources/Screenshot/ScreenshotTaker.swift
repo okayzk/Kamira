@@ -134,62 +134,31 @@ final class ScreenshotTaker {
         onCaptured?(capture)
     }
 
-    /// A region or window screenshot with the window shadow the user chose. The system
-    /// tool can only draw its own wide shadow or none (`-o`); the sizes in between are
-    /// added afterwards by a helper process, which leaves anything but a window capture alone.
-    /// The picture's file goes to `done`, by default to become a screenshot.
+    /// A region or window screenshot, selected by the user, with the window shadow the
+    /// user chose (`ScreenshotTool`). The picture's file goes to `done`, by default to
+    /// become a screenshot.
     private func captureInteractively(_ arguments: [String], hidingDesktopIcons: Bool = true,
                                       then done: ((URL) -> Void)? = nil) {
-        let level = Settings.windowShadowLevel
-        let done = done ?? { [weak self] file in self?.finish(file) }
-        capture(arguments + (level == WindowShadowLevel.system ? [] : ["-o"]), interactive: true,
-                hidingDesktopIcons: hidingDesktopIcons) { file in
-            guard level > 0, level < WindowShadowLevel.system, FileManager.default.fileExists(atPath: file.path) else {
-                done(file)
-                return
-            }
-            let helper = Process()
-            helper.executableURL = Bundle.main.executableURL
-            helper.arguments = ["--window-shadow", file.path, String(level)]
-            helper.terminationHandler = { _ in DispatchQueue.main.async { done(file) } }
-            // Without the helper the capture is still good, only without a shadow.
-            do { try helper.run() } catch { done(file) }
-        }
+        capture(arguments, interactive: true, windowShadow: true, hidingDesktopIcons: hidingDesktopIcons, completion: done)
     }
 
     /// Runs the system screenshot tool. It writes the picture to a temporary file, which
     /// is handed to `completion`; by default it becomes a screenshot (mapped, never read
     /// into allocated memory, and copied to the clipboard). No file means it was cancelled.
-    private func capture(_ arguments: [String], interactive: Bool, hidingDesktopIcons: Bool = true,
-                         completion: ((URL) -> Void)? = nil) {
+    private func capture(_ arguments: [String], interactive: Bool, windowShadow: Bool = false,
+                         hidingDesktopIcons: Bool = true, completion: ((URL) -> Void)? = nil) {
         // One selection at a time.
         if interactive, interactiveCapture?.isRunning == true { return }
         let file = directory.appendingPathComponent("capture-\(UUID().uuidString).png")
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-        process.arguments = arguments + ["-t", "png", file.path]
-        // With that setting on, the icons are covered first and shown again afterwards.
-        let cover = hidingDesktopIcons && Settings.hideDesktopIcons ? DesktopCoverSession() : nil
-        process.terminationHandler = { [weak self] finished in
-            DispatchQueue.main.async {
-                cover?.stop()
-                if self?.interactiveCapture === finished { self?.interactiveCapture = nil }
-                if let completion = completion { completion(file) } else { self?.finish(file) }
-            }
+        let process = ScreenshotTool.run(arguments, to: file, windowShadow: windowShadow, hidingDesktopIcons: hidingDesktopIcons,
+                                         failed: { [weak self] error in
+                                             self?.onError?(L("error.screenshotTool", error.localizedDescription))
+                                         }) { [weak self] finished, file in
+            if self?.interactiveCapture === finished { self?.interactiveCapture = nil }
+            if let completion = completion { completion(file) } else { self?.finish(file) }
         }
         if interactive { interactiveCapture = process }
-        let run = { [weak self] in
-            do { try process.run() } catch {
-                cover?.stop()
-                self?.onError?(L("error.screenshotTool", error.localizedDescription))
-            }
-        }
-        // Give AppKit one event-loop turn to take away what the app has just hidden (the
-        // Quick Panel) before the capture begins.
-        DispatchQueue.main.async {
-            if let cover = cover { cover.start(then: run) } else { run() }
-        }
     }
 
     /// Writes a screenshot into the save folder under its own name, without asking.

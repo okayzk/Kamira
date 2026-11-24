@@ -15,6 +15,17 @@ enum AnnotationRenderer {
     struct MosaicTile {
         let image: CGImage
         let frame: CGRect
+        /// The part of the picture that shows.
+        let shown: CGRect
+    }
+
+    /// Draws `image` at `frame`, only within `shown`; scaled by `scale`.
+    static func drawPicture(_ image: CGImage, at frame: CGRect, shown: CGRect, in context: CGContext, scale: CGFloat) {
+        let toDevice = CGAffineTransform(scaleX: scale, y: scale)
+        context.saveGState()
+        context.clip(to: shown.applying(toDevice))
+        context.draw(image, in: frame.applying(toDevice))
+        context.restoreGState()
     }
 
     /// A coarse copy of the capture; drawn enlarged without smoothing it becomes the mosaic.
@@ -25,7 +36,9 @@ enum AnnotationRenderer {
     /// The mosaic's tiles for `pictures` lying as `stack` says, bottom to top.
     static func mosaicTiles(_ pictures: [CapturedImage], _ stack: LayerStack) -> [MosaicTile] {
         let images = pictures.map(mosaicImage(for:))
-        return stack.layers.compactMap { layer in images[layer.picture].map { MosaicTile(image: $0, frame: layer.frame) } }
+        return stack.layers.compactMap { layer in
+            images[layer.picture].map { MosaicTile(image: $0, frame: layer.frame, shown: layer.shownFrame) }
+        }
     }
 
     /// - Parameters:
@@ -44,6 +57,7 @@ enum AnnotationRenderer {
 
     private static func draw(_ annotation: Annotation, in context: CGContext, mosaic: [MosaicTile]) {
         guard let first = annotation.points.first, let last = annotation.points.last else { return }
+        if let clip = annotation.clip { context.clip(to: clip) }
         context.setStrokeColor(annotation.color)
         context.setFillColor(annotation.color)
         context.setLineWidth(lineWidth)
@@ -98,7 +112,7 @@ enum AnnotationRenderer {
         case .mosaic:
             context.clip(to: annotation.rect)
             context.interpolationQuality = .none
-            for tile in mosaic { context.draw(tile.image, in: tile.frame) }
+            for tile in mosaic { drawPicture(tile.image, at: tile.frame, shown: tile.shown, in: context, scale: 1) }
         }
     }
 
@@ -152,7 +166,7 @@ enum AnnotationRenderer {
             // One at a time, so only one decoded picture is held besides the whole.
             autoreleasepool {
                 guard let image = pictures[layer.picture].fullSizeUncached() else { return }
-                context.draw(image, in: layer.frame.applying(CGAffineTransform(scaleX: scale, y: scale)))
+                drawPicture(image, at: layer.frame, shown: layer.shownFrame, in: context, scale: scale)
             }
         }
         draw(annotations, in: context, scale: scale, mosaic: mosaicTiles(pictures, stack))

@@ -12,6 +12,9 @@ struct Annotation {
     var points: [CGPoint]
     /// Text content, or the number shown in a counter.
     var text = ""
+    /// Where it may show, once a crop was made part of the pictures (`keepingOnly`);
+    /// nil everywhere.
+    var clip: CGRect?
 
     /// Rectangle spanned by the first and last point, whichever way it was dragged.
     var rect: CGRect {
@@ -35,8 +38,20 @@ extension Annotation {
     /// rather than by the corners of a box.
     var isSegment: Bool { tool == .arrow || tool == .line }
 
-    /// The smallest rectangle around everything the annotation draws, ignoring line width.
+    /// The annotation showing only within `area`, as what a crop kept, wherever it goes.
+    func keepingOnly(_ area: CGRect) -> Annotation {
+        var copy = self
+        copy.clip = clip?.intersection(area) ?? area
+        return copy
+    }
+
+    /// The smallest rectangle around everything the annotation draws that shows, ignoring line width.
     var bounds: CGRect {
+        let whole = unclippedBounds
+        return clip.map { whole.intersection($0) } ?? whole
+    }
+
+    private var unclippedBounds: CGRect {
         guard let first = points.first else { return .zero }
         switch tool {
         case .text:
@@ -59,6 +74,7 @@ extension Annotation {
     /// `tolerance`. Outlined shapes are hit on the outline only, so that something can
     /// still be drawn inside them.
     func hitTest(_ point: CGPoint, tolerance: CGFloat) -> Bool {
+        if let clip = clip, !clip.contains(point) { return false }
         let reach = tolerance + AnnotationRenderer.lineWidth / 2
         func nearLine(_ a: CGPoint, _ b: CGPoint) -> Bool {
             let dx = b.x - a.x, dy = b.y - a.y
@@ -95,6 +111,7 @@ extension Annotation {
     func moved(by offset: CGVector) -> Annotation {
         var copy = self
         copy.points = points.map { CGPoint(x: $0.x + offset.dx, y: $0.y + offset.dy) }
+        copy.clip = clip?.offsetBy(dx: offset.dx, dy: offset.dy)
         return copy
     }
 

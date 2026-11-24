@@ -18,8 +18,6 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
     private static let barHeight: CGFloat = 46
 
     private let capture: CapturedImage
-    /// What is edited: the capture, or the pictures it was combined from.
-    private let pictures: [CapturedImage]
     private let window: EditorWindow
     private let canvas: AnnotationCanvas
     /// Holds the canvas and zooms into it; as large as the picture, so at a zoom of 1
@@ -31,19 +29,21 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
     private var canvasHeight: NSLayoutConstraint?
     /// How wide the move handle and the tool bar are together: the window is never narrower.
     private var barRowWidth: CGFloat = 0
+    /// The tool bar's view, measured again when a button appears or goes.
+    private var barView: NSView?
+    /// While a screenshot is being added: the editor is out of the way meanwhile.
+    private var adding = false
 
     /// Edits `capture`, or with `parts` the pictures it was combined from, each where it lies.
     init(capture: CapturedImage, parts: [(picture: CapturedImage, frame: CGRect)] = []) {
         self.capture = capture
-        pictures = parts.isEmpty ? [capture] : parts.map(\.picture)
+        let pictures = parts.isEmpty ? [capture] : parts.map(\.picture)
         let frames = parts.isEmpty ? [CGRect(origin: .zero, size: capture.pointSize)] : parts.map(\.frame)
         let size = Self.canvasSize(for: LayerStack(frames: frames).bounds.size, on: NSScreen.underPointer)
         canvas = AnnotationCanvas(pictures: pictures, frames: frames, background: Settings.combinedBackground,
                                   size: size, color: toolBar.color)
-        if !parts.isEmpty {
-            toolBar.showsBackground = true
-            toolBar.showBackground(canvas.background)
-        }
+        toolBar.showBackground(canvas.background)
+        toolBar.showSeveral(canvas.stack.isSeveral)
         window = EditorWindow(contentRect: NSRect(origin: .zero, size: size),
                               styleMask: [.borderless], backing: .buffered, defer: false)
         super.init()
@@ -90,9 +90,37 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         } else {
             window.center()
         }
+        bringBack()
+    }
+
+    private func bringBack() {
         QuietMode.activate()
         window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(canvas)
+    }
+
+    /// Takes a screenshot as the app does (`ScreenshotTool`), with the editor out of the
+    /// way meanwhile, and puts it beside what is there; Esc leaves everything as it was.
+    private func addScreenshot() {
+        guard !adding else { return }
+        adding = true
+        canvas.commitText()
+        canvas.commitCrop()
+        window.orderOut(nil)
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("\(AppInfo.name)-add-\(UUID().uuidString).png")
+        ScreenshotTool.run(["-i", "-x"], to: file, windowShadow: true, hidingDesktopIcons: true, failed: { [weak self] _ in
+            self?.adding = false
+            self?.bringBack()
+            NSSound.beep()
+        }) { [weak self] _, file in
+            // Read once into memory, like the other pictures, and the file deleted.
+            let picture = (try? Data(contentsOf: file)).flatMap(CapturedImage.init(data:))
+            try? FileManager.default.removeItem(at: file)
+            guard let self = self else { return }
+            self.adding = false
+            self.bringBack()
+            if let picture = picture { self.canvas.add(picture) }
+        }
     }
 
     /// What the tool bar's buttons do, and the tool bar following the canvas.
@@ -114,7 +142,15 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
             guard let self = self else { return }
             self.toolBar.showCropping(cropping, tool: self.canvas.tool)
         }
-        canvas.onAreaChange = { [weak self] previous in self?.fitToArea(from: previous) }
+        canvas.onAreaChange = { [weak self] previous in
+            guard let self = self else { return }
+            // A screenshot added, or undone, may bring the background button or take it away.
+            self.toolBar.showSeveral(self.canvas.stack.isSeveral)
+            self.barView?.layoutSubtreeIfNeeded()
+            self.barRowWidth = (self.barView?.fittingSize.width ?? 0) + MoveHandle.diameter + Self.handleGap
+            self.fitToArea(from: previous)
+        }
+        toolBar.onAdd = { [weak self] in self?.addScreenshot() }
         // The background last chosen is also the one several screenshots are next combined on.
         toolBar.onBackground = { [weak self] background, continuing in
             self?.canvas.applyBackground(background, continuing: continuing)
@@ -156,6 +192,7 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         NotificationCenter.default.addObserver(self, selector: #selector(zoomChanged),
                                                name: NSScrollView.didEndLiveMagnifyNotification, object: scroll)
         let bar = toolBar.makeView(height: Self.barHeight)
+        barView = bar
         let handle = MoveHandle(label: L("editor.move"))
         // The frame marks where the editor ends and the screen behind it begins: without
         // it a capture of a window is easily taken for the window itself.
@@ -251,6 +288,12 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         if zoom > 1 { self.zoom(to: zoom) }
     }
 
+    /// Development aid: `picture` added as a screenshot taken in the editor would be.
+    func runAddDemo(_ picture: CapturedImage) {
+        window.layoutIfNeeded()
+        canvas.add(picture)
+    }
+
     /// Development aid; see `AnnotationCanvas.arrangeSamples`.
     func runArrangeDemo() {
         window.layoutIfNeeded()
@@ -291,7 +334,7 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         canvas.commitText()
         canvas.commitCrop()
         if canvas.annotations.isEmpty, !canvas.isCropped, !canvas.stack.isSeveral { return capture }
-        guard let data = AnnotationRenderer.export(pictures: pictures, stack: canvas.stack,
+        guard let data = AnnotationRenderer.export(pictures: canvas.pictures.pictures, stack: canvas.stack,
                                                    background: canvas.background,
                                                    annotations: canvas.annotations, area: canvas.area),
               let result = CapturedImage(data: data) else {
