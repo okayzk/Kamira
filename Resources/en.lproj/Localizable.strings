@@ -22,10 +22,10 @@
 "action.done" = "Done";
 
 "editor.color" = "Colour";
-"editor.close" = "Close (Esc)";
+"editor.close" = "Close (⎋)";
 "editor.move" = "Drag to Move";
 "editor.zoom" = "Zoom (⌘+, ⌘−, ⌘0)";
-"editor.crop" = "Crop (Return to apply, Esc to cancel)";
+"editor.crop" = "Crop (↩ to apply, ⎋ to cancel)";
 "editor.moreColors" = "More Colours…";
 "editor.background" = "Background between the pictures";
 "editor.addScreenshot" = "Add a screenshot beside this one";
@@ -116,7 +116,7 @@
 "selector.systemAudio" = "System Audio";
 "selector.countdown" = "3-Second Countdown";
 "selector.wholeScreen" = "Whole Screen";
-"selector.chooseWindow" = "Choose Window (Space; Esc to go back)";
+"selector.chooseWindow" = "Choose Window (Space; ⎋ to go back)";
 "selector.area.recording" = "Drag to select the area to record";
 "selector.area.scrolling" = "Drag to select the area to capture while scrolling";
 
@@ -161,7 +161,7 @@
 "settings.closePreview.seconds" = "After %d Seconds";
 "settings.shortcut.record" = "Record Shortcut";
 "settings.shortcut.recording" = "Type Shortcut…";
-"settings.shortcut.hint" = "Click, then type a shortcut. Delete clears, Esc cancels.";
+"settings.shortcut.hint" = "Click, then type a shortcut. ⌫ clears, ⎋ cancels.";
 "settings.shortcut.taken" = "In use by macOS";
 "settings.systemShortcuts" = "Turn Off System Screenshot Shortcuts…";
 "settings.systemShortcuts.steps" = "macOS answers ⇧⌘3, ⇧⌘4 and ⇧⌘5 itself while its screenshot shortcuts are on.\n\nSystem Settings → Keyboard → Keyboard Shortcuts… → Screenshots: untick the ones used here.";

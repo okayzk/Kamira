@@ -22,10 +22,10 @@
 "action.done" = "完成";
 
 "editor.color" = "颜色";
-"editor.close" = "关闭（Esc）";
+"editor.close" = "关闭（⎋）";
 "editor.move" = "按住拖动窗口";
 "editor.zoom" = "放大（⌘+、⌘−、⌘0）";
-"editor.crop" = "裁剪（回车确认，Esc 取消）";
+"editor.crop" = "裁剪（↩ 确认，⎋ 取消）";
 "editor.moreColors" = "更多颜色…";
 "editor.background" = "图片之间的背景";
 "editor.addScreenshot" = "追加截图";
@@ -116,7 +116,7 @@
 "selector.systemAudio" = "系统声音";
 "selector.countdown" = "3 秒倒计时";
 "selector.wholeScreen" = "整个屏幕";
-"selector.chooseWindow" = "选择窗口（空格；Esc 返回划区）";
+"selector.chooseWindow" = "选择窗口（空格；⎋ 返回划区）";
 "selector.area.recording" = "在这里拖动，选出要录制的区域";
 "selector.area.scrolling" = "在这里拖动，选出要滚动截取的区域";
 
@@ -161,7 +161,7 @@
 "settings.closePreview.seconds" = "%d 秒后";
 "settings.shortcut.record" = "录制快捷键";
 "settings.shortcut.recording" = "按下快捷键…";
-"settings.shortcut.hint" = "点按后输入快捷键；Delete 清除，Esc 取消。";
+"settings.shortcut.hint" = "点按后输入快捷键；⌫ 清除，⎋ 取消。";
 "settings.shortcut.taken" = "已被 macOS 占用";
 "settings.systemShortcuts" = "关闭系统截屏快捷键…";
 "settings.systemShortcuts.steps" = "系统截屏也用 ⇧⌘3、⇧⌘4、⇧⌘5，开着时按键只归系统。\n\n系统设置 → 键盘 → 键盘快捷键… → 截屏，取消勾选相同的几项。";
