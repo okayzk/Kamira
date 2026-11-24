@@ -415,6 +415,9 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         selected = annotation.handles.isEmpty ? nil : annotations.count - 1
     }
 
+    /// Return or Enter was pressed while not cropping or typing.
+    var onReturn: (() -> Void)?
+
     /// Called when ⌘ with the scroll wheel asks for a zoom of `factor` around a point of the canvas.
     var onZoom: ((_ factor: CGFloat, _ centre: NSPoint) -> Void)?
 
@@ -430,6 +433,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         case 53 where isCropping: cancelCrop() // Esc
         case 53: window?.close()
         case 36 where isCropping, 76 where isCropping: commitCrop() // Return, Enter
+        case 36, 76: onReturn?()
         case 51 where selected != nil, 117 where selected != nil: deleteSelected() // Delete, Forward Delete
         default: super.keyDown(with: event)
         }

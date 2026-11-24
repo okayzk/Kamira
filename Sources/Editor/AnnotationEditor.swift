@@ -128,6 +128,8 @@ final class AnnotationEditor: NSObject, NSWindowDelegate {
         toolBar.onSave = { [weak self] in self?.saveResult() }
         toolBar.onClose = { [weak self] in self?.window.close() }
         toolBar.onCopy = { [weak self] in self?.copyResult() }
+        // Return copies, as the one tinted button does; while cropping it keeps the crop.
+        canvas.onReturn = { [weak self] in self?.copyResult() }
         canvas.onToolChange = { [weak self] tool in self?.toolBar.show(tool) }
     }
 

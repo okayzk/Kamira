@@ -84,6 +84,7 @@ final class EditorToolBar: NSObject {
         copy.borderShape = .capsule
         copy.bezelColor = .controlAccentColor
         copy.controlSize = .large
+        copy.toolTip = L("tooltip.withShortcut", L("action.copy"), "↩")
         copy.setAccessibilityIdentifier("editor.copy")
 
         zoomButton = iconButton("plus.magnifyingglass", L("editor.zoom"), "editor.zoom", #selector(zoomClicked))
