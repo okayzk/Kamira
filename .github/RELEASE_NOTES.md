@@ -7,19 +7,19 @@
 </div>
 
 ### Changelog
-1. **Capture Several**: Select one area or window after another, then press Esc: they come out as one picture, laid out in rows.
-2. **Crop in the Editor**: The annotation editor crops the picture, and its window shrinks to the part kept.
-3. **Arrange Several Pictures**: A picture made with Capture Several comes apart again in the editor, so each part can be dragged, brought to the front or sent to the back, with a background of your choice between them.
-4. **Add a Screenshot in the Editor**: A button in the editor takes another screenshot and puts it beside the picture.
-5. **Return to Copy**: In the editor, Return copies the result, as the Copy button does.
-6. **MIT License**: Kamira is now released under the MIT License instead of GPL-3.0.
+1. **Capture Several**: Select one area or window after another, then press Esc to get them as one picture.
+2. **Arrange Several Pictures**: In the editor, a Capture Several picture comes apart: drag each part, change which lies on top, and choose the background between them.
+3. **Add a Screenshot in the Editor**: Take another screenshot from the editor; it goes beside the picture.
+4. **Crop in the Editor**: The annotation editor crops pictures.
+5. **Return to Copy**: Return in the editor copies the result.
+6. **MIT License**: Kamira moves from GPL-3.0 to the MIT License.
 
 ### 更新日志
-1. **截取多张**：一块接一块地框选区域或窗口，按 Esc 后拼成一张图，按行自动排好。
-2. **编辑器裁剪**：标注编辑器可以裁剪图片，裁完窗口随之缩到留下的大小。
-3. **编辑器里摆放多张图**：截取多张得到的图，在编辑器里会重新分成一张张，可以随意拖动、调整上下层，还能选图片之间的背景色。
-4. **编辑器里追加截图**：在编辑器里点一下按钮就能再截一张，新图自动放在旁边。
-5. **回车复制**：在编辑器里按回车，和点“复制”一样。
-6. **改用 MIT 许可证**：Kamira 不再采用 GPL-3.0，改为 MIT 许可证发布。
+1. **截取多张**：连续框选多个区域或窗口，按 Esc 拼成一张图。
+2. **编辑器里摆放多张图**：截取多张的图在编辑器里会分开，可以拖动、调整上下层、选择图片之间的背景色。
+3. **编辑器里追加截图**：在编辑器里再截一张，放在原图旁边。
+4. **编辑器裁剪**：标注编辑器可以裁剪图片。
+5. **回车复制**：在编辑器里按回车即复制。
+6. **改用 MIT 许可证**：许可证从 GPL-3.0 改为 MIT。
 
 > https://github.com/okayzk/Kamira
