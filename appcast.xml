@@ -4,6 +4,16 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
   <channel>
     <title>Kamira</title>
     <item>
+      <title>V0.4.0 Pleiades</title>
+      <pubDate>Tue, 24 Nov 2026 20:58:25 GMT</pubDate>
+      <sparkle:version>5</sparkle:version>
+      <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <link>https://github.com/okayzk/Kamira/releases/tag/V0.4.0</link>
+      <description>&lt;h3&gt;Changelog&lt;/h3&gt;&lt;ol&gt;&lt;li&gt;&lt;b&gt;Capture Several&lt;/b&gt;: Select one area or window after another, then press Esc to get them as one picture.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Arrange Several Pictures&lt;/b&gt;: In the editor, a Capture Several picture comes apart: drag each part, change which lies on top, and choose the background between them.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Add a Screenshot in the Editor&lt;/b&gt;: Take another screenshot from the editor; it goes beside the picture.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Crop in the Editor&lt;/b&gt;: The annotation editor crops pictures.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Return to Copy&lt;/b&gt;: Return in the editor copies the result.&lt;/li&gt;&lt;li&gt;&lt;b&gt;MIT License&lt;/b&gt;: Kamira moves from GPL-3.0 to the MIT License.&lt;/li&gt;&lt;/ol&gt;&lt;h3&gt;更新日志&lt;/h3&gt;&lt;ol&gt;&lt;li&gt;&lt;b&gt;截取多张&lt;/b&gt;：连续框选多个区域或窗口，按 Esc 拼成一张图。&lt;/li&gt;&lt;li&gt;&lt;b&gt;编辑器里摆放多张图&lt;/b&gt;：截取多张的图在编辑器里会分开，可以拖动、调整上下层、选择图片之间的背景色。&lt;/li&gt;&lt;li&gt;&lt;b&gt;编辑器里追加截图&lt;/b&gt;：在编辑器里再截一张，放在原图旁边。&lt;/li&gt;&lt;li&gt;&lt;b&gt;编辑器裁剪&lt;/b&gt;：标注编辑器可以裁剪图片。&lt;/li&gt;&lt;li&gt;&lt;b&gt;回车复制&lt;/b&gt;：在编辑器里按回车即复制。&lt;/li&gt;&lt;li&gt;&lt;b&gt;改用 MIT 许可证&lt;/b&gt;：许可证从 GPL-3.0 改为 MIT。&lt;/li&gt;&lt;/ol&gt;</description>
+      <enclosure url="https://github.com/okayzk/Kamira/releases/download/V0.4.0/Kamira.zip" length="3138681" type="application/octet-stream" sparkle:edSignature="NPaWhJDEkDssyZeXKsfzx/bLznpGAAQ5BLK/c6hwlHVIRVymLUyo5oaGkTXOa9cHNi5PLk8BaRGbXZO0OotVCg=="></enclosure>
+    </item>
+    <item>
       <title>V0.3.0 Norma</title>
       <pubDate>Mon, 16 Nov 2026 22:05:20 GMT</pubDate>
       <sparkle:version>4</sparkle:version>
@@ -45,6 +55,6 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     </item>
   </channel>
 </rss><!-- sparkle-signatures:
-edSignature: 9wkYY30Kn52vL5nzSu1Gp8GEQWZd72umuJ//rxeAChwis4CuB+9WgOPr50gkZRvhsIBbBzv3NZtNPt+ZNKeIAQ==
-length: 11872
+edSignature: Cl7+gk/M/1yJ/dWYh9jGCwGP2GlklZcQXOhvz2+k2ScgHJtkJ0lbMb6z3n2pPlQs+FqSa/+afVbtwtopJ5X/BQ==
+length: 14116
 -->
